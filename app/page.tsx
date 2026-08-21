@@ -61,8 +61,8 @@ export default async function Home() {
                     <div className="text-xs text-stone-500">hydration</div>
                   </div>
                 </div>
-                <p className="mt-4 text-sm leading-6 text-stone-600">{math.flours.map((flour) => `${flour.name} ${Number(flour.grams):g}g`.replace(":g", "")).join(" + ")}</p>
-                <p className="mt-1 text-xs text-stone-400">{math.totalFlour:g}g total flour</p>
+                <p className="mt-4 text-sm leading-6 text-stone-600">{math.flours.map((flour) => `${flour.name} ${Number(flour.grams)}g`).join(" + ")}</p>
+                <p className="mt-1 text-xs text-stone-400">{math.totalFlour}g total flour</p>
               </article>
             );
           })}
