@@ -1,11 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type WheelEvent } from "react";
 import { createBake } from "./actions";
 
 type FlourRow = { id: number; name: string; custom: string; grams: string };
 
 const flourOptions = ["Bread flour", "All-purpose flour", "Whole wheat flour", "Other"];
+
+function preventWheelChange(event: WheelEvent<HTMLInputElement>) {
+  event.currentTarget.blur();
+}
 
 export default function BakeForm({ error }: { error?: string }) {
   const [flours, setFlours] = useState<FlourRow[]>([
@@ -68,7 +72,7 @@ export default function BakeForm({ error }: { error?: string }) {
                   {flourOptions.map((option) => <option key={option}>{option}</option>)}
                 </select>
                 <div className="relative">
-                  <input name="flour_grams" type="number" min="0" step="0.1" inputMode="decimal" value={flour.grams} onChange={(event) => updateFlour(flour.id, "grams", event.target.value)} placeholder="500" className="min-h-12 w-full rounded-xl border border-stone-300 bg-white px-3 pr-8 text-base" />
+                  <input name="flour_grams" type="number" min="0" step="0.1" inputMode="decimal" value={flour.grams} onChange={(event) => updateFlour(flour.id, "grams", event.target.value)} onWheel={preventWheelChange} placeholder="500" className="min-h-12 w-full rounded-xl border border-stone-300 bg-white px-3 pr-8 text-base" />
                   <span className="pointer-events-none absolute right-3 top-3 text-stone-400">g</span>
                 </div>
               </div>
@@ -86,10 +90,10 @@ export default function BakeForm({ error }: { error?: string }) {
         <h2 className="text-lg font-semibold text-stone-900">Water, salt & yeast</h2>
         <div className="mt-4 grid grid-cols-2 gap-4">
           <label className="text-sm font-medium text-stone-700">Water
-            <div className="relative mt-2"><input name="water_grams" type="number" min="0" step="0.1" inputMode="decimal" placeholder="350" className="min-h-12 w-full rounded-xl border border-stone-300 px-3 pr-8 text-base" /><span className="pointer-events-none absolute right-3 top-3 text-stone-400">g</span></div>
+            <div className="relative mt-2"><input name="water_grams" type="number" min="0" step="0.1" inputMode="decimal" onWheel={preventWheelChange} placeholder="350" className="min-h-12 w-full rounded-xl border border-stone-300 px-3 pr-8 text-base" /><span className="pointer-events-none absolute right-3 top-3 text-stone-400">g</span></div>
           </label>
           <label className="text-sm font-medium text-stone-700">Salt
-            <div className="relative mt-2"><input name="salt_grams" type="number" min="0" step="0.1" inputMode="decimal" placeholder="10" className="min-h-12 w-full rounded-xl border border-stone-300 px-3 pr-8 text-base" /><span className="pointer-events-none absolute right-3 top-3 text-stone-400">g</span></div>
+            <div className="relative mt-2"><input name="salt_grams" type="number" min="0" step="0.1" inputMode="decimal" onWheel={preventWheelChange} placeholder="10" className="min-h-12 w-full rounded-xl border border-stone-300 px-3 pr-8 text-base" /><span className="pointer-events-none absolute right-3 top-3 text-stone-400">g</span></div>
           </label>
         </div>
         <div className="mt-4 grid grid-cols-[1fr_7rem] gap-3">
@@ -99,7 +103,7 @@ export default function BakeForm({ error }: { error?: string }) {
             </select>
           </label>
           <label className="text-sm font-medium text-stone-700">Yeast
-            <div className="relative mt-2"><input name="yeast_grams" type="number" min="0" step="0.1" inputMode="decimal" placeholder="4" className="min-h-12 w-full rounded-xl border border-stone-300 px-3 pr-8 text-base" /><span className="pointer-events-none absolute right-3 top-3 text-stone-400">g</span></div>
+            <div className="relative mt-2"><input name="yeast_grams" type="number" min="0" step="0.1" inputMode="decimal" onWheel={preventWheelChange} placeholder="4" className="min-h-12 w-full rounded-xl border border-stone-300 px-3 pr-8 text-base" /><span className="pointer-events-none absolute right-3 top-3 text-stone-400">g</span></div>
           </label>
         </div>
       </section>
