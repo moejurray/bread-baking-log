@@ -1,9 +1,25 @@
-export default function Home() {
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import { signOut } from "./login/actions";
+
+export default async function Home() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/login");
+  }
+
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col px-5 pb-24 pt-8 sm:max-w-2xl">
-      <header className="mb-10">
-        <p className="mb-2 text-sm font-semibold uppercase tracking-[0.18em] text-stone-500">Bread Baking Log</p>
-        <h1 className="text-4xl font-semibold tracking-tight text-stone-900">Bakes</h1>
+      <header className="mb-10 flex items-start justify-between gap-4">
+        <div>
+          <p className="mb-2 text-sm font-semibold uppercase tracking-[0.18em] text-stone-500">Bread Baking Log</p>
+          <h1 className="text-4xl font-semibold tracking-tight text-stone-900">Bakes</h1>
+        </div>
+        <form action={signOut}>
+          <button type="submit" className="min-h-10 rounded-xl border border-stone-300 bg-white px-4 text-sm font-medium text-stone-700">Sign out</button>
+        </form>
       </header>
 
       <section className="flex flex-1 flex-col items-center justify-center rounded-3xl border border-dashed border-stone-300 bg-white/60 px-6 py-16 text-center shadow-sm">
