@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type WheelEvent } from "react";
 import { saveProcess } from "./actions";
 
 type ProcessStep = { step_type: string; description: string | null; duration_minutes: number | null; temperature_f: number | null };
@@ -18,6 +18,10 @@ const defaultBaking: BakingStage[] = [
   { temperature_f: 450, duration_minutes: null, lid_on: true, description: "" },
   { temperature_f: 450, duration_minutes: null, lid_on: false, description: "" },
 ];
+
+function preventWheelChange(event: WheelEvent<HTMLInputElement>) {
+  event.currentTarget.blur();
+}
 
 export default function ProcessForm({ bakeId, initialSteps, initialBaking }: { bakeId: string; initialSteps: ProcessStep[]; initialBaking: BakingStage[] }) {
   const [steps, setSteps] = useState(initialSteps.length ? initialSteps : defaultSteps);
@@ -49,14 +53,14 @@ export default function ProcessForm({ bakeId, initialSteps, initialBaking }: { b
                   </select>
                 </label>
                 <label className="text-sm font-medium text-stone-700">Minutes
-                  <input name="step_duration" type="number" min="0" defaultValue={step.duration_minutes ?? ""} className="mt-2 min-h-12 w-full rounded-xl border border-stone-300 bg-white px-3 text-base" />
+                  <input name="step_duration" type="number" min="0" defaultValue={step.duration_minutes ?? ""} onWheel={preventWheelChange} className="mt-2 min-h-12 w-full rounded-xl border border-stone-300 bg-white px-3 text-base" />
                 </label>
               </div>
               <label className="mt-3 block text-sm font-medium text-stone-700">What did you do?
                 <input name="step_description" defaultValue={step.description ?? ""} placeholder="e.g. Stand mixer, speed 2" className="mt-2 min-h-12 w-full rounded-xl border border-stone-300 bg-white px-3 text-base" />
               </label>
               <label className="mt-3 block text-sm font-medium text-stone-700">Temperature °F <span className="font-normal text-stone-400">(when useful)</span>
-                <input name="step_temperature" type="number" step="0.1" defaultValue={step.temperature_f ?? ""} placeholder="76" className="mt-2 min-h-12 w-full rounded-xl border border-stone-300 bg-white px-3 text-base" />
+                <input name="step_temperature" type="number" step="0.1" defaultValue={step.temperature_f ?? ""} placeholder="76" onWheel={preventWheelChange} className="mt-2 min-h-12 w-full rounded-xl border border-stone-300 bg-white px-3 text-base" />
               </label>
             </div>
           ))}
@@ -72,8 +76,8 @@ export default function ProcessForm({ bakeId, initialSteps, initialBaking }: { b
           {baking.map((stage, index) => (
             <div key={index} className="rounded-2xl bg-stone-50 p-4">
               <div className="grid grid-cols-2 gap-3">
-                <label className="text-sm font-medium text-stone-700">Oven °F<input name="bake_temperature" type="number" step="0.1" defaultValue={stage.temperature_f ?? ""} className="mt-2 min-h-12 w-full rounded-xl border border-stone-300 bg-white px-3 text-base" /></label>
-                <label className="text-sm font-medium text-stone-700">Minutes<input name="bake_duration" type="number" min="0" defaultValue={stage.duration_minutes ?? ""} className="mt-2 min-h-12 w-full rounded-xl border border-stone-300 bg-white px-3 text-base" /></label>
+                <label className="text-sm font-medium text-stone-700">Oven °F<input name="bake_temperature" type="number" step="0.1" defaultValue={stage.temperature_f ?? ""} onWheel={preventWheelChange} className="mt-2 min-h-12 w-full rounded-xl border border-stone-300 bg-white px-3 text-base" /></label>
+                <label className="text-sm font-medium text-stone-700">Minutes<input name="bake_duration" type="number" min="0" defaultValue={stage.duration_minutes ?? ""} onWheel={preventWheelChange} className="mt-2 min-h-12 w-full rounded-xl border border-stone-300 bg-white px-3 text-base" /></label>
               </div>
               <div className="mt-3 grid grid-cols-[9rem_1fr] gap-3">
                 <label className="text-sm font-medium text-stone-700">Lid
