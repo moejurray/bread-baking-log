@@ -1,18 +1,34 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { signOut } from "./login/actions";
 
+type Ingredient = { ingredient_type: string; name: string; grams: number };
+type Bake = { id: string; name: string; bake_date: string; ingredients: Ingredient[] };
+
+function bakeMath(ingredients: Ingredient[]) {
+  const flours = ingredients.filter((item) => item.ingredient_type === "flour");
+  const totalFlour = flours.reduce((sum, item) => sum + Number(item.grams), 0);
+  const water = ingredients.filter((item) => item.ingredient_type === "water").reduce((sum, item) => sum + Number(item.grams), 0);
+  const hydration = totalFlour > 0 ? (water / totalFlour) * 100 : 0;
+  return { flours, totalFlour, hydration };
+}
+
 export default async function Home() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
 
-  if (!user) {
-    redirect("/login");
-  }
+  const { data } = await supabase
+    .from("bakes")
+    .select("id, name, bake_date, ingredients(ingredient_type, name, grams)")
+    .order("bake_date", { ascending: false });
+
+  const bakes = (data ?? []) as Bake[];
 
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col px-5 pb-24 pt-8 sm:max-w-2xl">
-      <header className="mb-10 flex items-start justify-between gap-4">
+      <header className="mb-8 flex items-start justify-between gap-4">
         <div>
           <p className="mb-2 text-sm font-semibold uppercase tracking-[0.18em] text-stone-500">Bread Baking Log</p>
           <h1 className="text-4xl font-semibold tracking-tight text-stone-900">Bakes</h1>
@@ -22,18 +38,42 @@ export default async function Home() {
         </form>
       </header>
 
-      <section className="flex flex-1 flex-col items-center justify-center rounded-3xl border border-dashed border-stone-300 bg-white/60 px-6 py-16 text-center shadow-sm">
-        <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-stone-900 text-2xl text-white" aria-hidden="true">+</div>
-        <h2 className="text-xl font-semibold text-stone-900">No bakes yet</h2>
-        <p className="mt-2 max-w-sm leading-6 text-stone-600">Your bread experiments will appear here. Soon you'll be able to record a bake, evaluate it, bake it again, and compare what changed.</p>
-        <button type="button" disabled className="mt-7 min-h-12 rounded-xl bg-stone-900 px-6 py-3 font-semibold text-white opacity-50">New Bake — coming next</button>
-      </section>
+      {bakes.length === 0 ? (
+        <section className="flex flex-1 flex-col items-center justify-center rounded-3xl border border-dashed border-stone-300 bg-white/60 px-6 py-16 text-center shadow-sm">
+          <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-stone-900 text-2xl text-white" aria-hidden="true">+</div>
+          <h2 className="text-xl font-semibold text-stone-900">No bakes yet</h2>
+          <p className="mt-2 max-w-sm leading-6 text-stone-600">Record your first formula and start building your baking history.</p>
+          <Link href="/new" className="mt-7 min-h-12 rounded-xl bg-stone-900 px-6 py-3 font-semibold text-white">New Bake</Link>
+        </section>
+      ) : (
+        <section className="space-y-4">
+          {bakes.map((bake) => {
+            const math = bakeMath(bake.ingredients);
+            return (
+              <article key={bake.id} className="rounded-3xl border border-stone-200 bg-white p-5 shadow-sm">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h2 className="text-xl font-semibold text-stone-900">{bake.name}</h2>
+                    <p className="mt-1 text-sm text-stone-500">{new Date(`${bake.bake_date}T12:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</p>
+                  </div>
+                  <div className="rounded-xl bg-stone-100 px-3 py-2 text-right">
+                    <div className="text-lg font-semibold text-stone-900">{math.hydration.toFixed(1)}%</div>
+                    <div className="text-xs text-stone-500">hydration</div>
+                  </div>
+                </div>
+                <p className="mt-4 text-sm leading-6 text-stone-600">{math.flours.map((flour) => `${flour.name} ${Number(flour.grams):g}g`.replace(":g", "")).join(" + ")}</p>
+                <p className="mt-1 text-xs text-stone-400">{math.totalFlour:g}g total flour</p>
+              </article>
+            );
+          })}
+        </section>
+      )}
 
       <nav className="fixed inset-x-0 bottom-0 border-t border-stone-200 bg-white/95 px-4 py-3 backdrop-blur" aria-label="Primary navigation">
         <div className="mx-auto grid max-w-md grid-cols-3 gap-2 text-center text-sm font-medium sm:max-w-2xl">
-          <span className="rounded-xl bg-stone-100 px-3 py-2 text-stone-900">Bakes</span>
-          <span className="px-3 py-2 text-stone-500">New Bake</span>
-          <span className="px-3 py-2 text-stone-500">Compare</span>
+          <Link href="/" className="rounded-xl bg-stone-100 px-3 py-2 text-stone-900">Bakes</Link>
+          <Link href="/new" className="rounded-xl px-3 py-2 text-stone-700">New Bake</Link>
+          <span className="px-3 py-2 text-stone-400">Compare</span>
         </div>
       </nav>
     </main>
