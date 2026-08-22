@@ -12,6 +12,8 @@ const defaultSteps: ProcessStep[] = [
   { step_type: "proofing", description: "First proof", duration_minutes: null, temperature_f: null },
   { step_type: "shaping", description: "", duration_minutes: null, temperature_f: null },
   { step_type: "proofing", description: "Final proof", duration_minutes: null, temperature_f: null },
+  { step_type: "resting", description: "Cooling in Dutch oven", duration_minutes: null, temperature_f: null },
+  { step_type: "resting", description: "Cooling on rack", duration_minutes: null, temperature_f: null },
 ];
 
 const defaultBaking: BakingStage[] = [
@@ -29,7 +31,7 @@ export default function ProcessForm({ bakeId, initialSteps, initialBaking }: { b
   const action = saveProcess.bind(null, bakeId);
 
   function addStep() {
-    setSteps((current) => [...current, { step_type: "proofing", description: "", duration_minutes: null, temperature_f: null }]);
+    setSteps((current) => [...current, { step_type: "other", description: "", duration_minutes: null, temperature_f: null }]);
   }
 
   function addBakingStage() {
@@ -49,7 +51,7 @@ export default function ProcessForm({ bakeId, initialSteps, initialBaking }: { b
               <div className="grid grid-cols-2 gap-3">
                 <label className="text-sm font-medium text-stone-700">Step
                   <select name="step_type" defaultValue={step.step_type} className="mt-2 min-h-12 w-full rounded-xl border border-stone-300 bg-white px-3 text-base">
-                    <option value="mixing">Mixing</option><option value="kneading">Kneading</option><option value="proofing">Proofing</option><option value="shaping">Shaping</option><option value="resting">Resting</option><option value="other">Other</option>
+                    <option value="mixing">Mixing</option><option value="kneading">Kneading</option><option value="proofing">Proofing</option><option value="shaping">Shaping</option><option value="resting">Resting / Cooling</option><option value="other">Other</option>
                   </select>
                 </label>
                 <label className="text-sm font-medium text-stone-700">Minutes
@@ -65,6 +67,7 @@ export default function ProcessForm({ bakeId, initialSteps, initialBaking }: { b
             </div>
           ))}
         </div>
+        <button type="button" onClick={addStep} className="mt-4 min-h-12 w-full rounded-xl border border-dashed border-stone-400 bg-stone-50 px-4 py-3 font-semibold text-stone-700">+ Add another process step</button>
       </section>
 
       <section className="rounded-3xl border border-stone-200 bg-white p-5 shadow-sm">
