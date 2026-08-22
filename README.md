@@ -107,4 +107,4 @@ Feedback, bug reports, and ideas are welcome.
 
 ## License
 
-No open-source license has been selected yet. Public GitHub visibility makes the source code viewable, but does not by itself grant permission to reuse or redistribute the code.
+MIT. See [LICENSE](LICENSE).
