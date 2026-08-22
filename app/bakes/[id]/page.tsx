@@ -6,6 +6,7 @@ import ProcessForm from "./ProcessForm";
 import EvaluationForm from "./EvaluationForm";
 import PhotosSection from "./PhotosSection";
 import FormulaEditor from "./FormulaEditor";
+import ExperimentNameEditor from "./ExperimentNameEditor";
 
 type Ingredient = { ingredient_type: string; name: string; grams: number; sort_order: number };
 type ProcessStep = { step_type: string; description: string | null; duration_minutes: number | null; temperature_f: number | null; sort_order: number };
@@ -22,7 +23,7 @@ export default async function BakePage({ params, searchParams }: { params: Promi
 
   const { data: bake } = await supabase
     .from("bakes")
-    .select("id, name, bake_date, ingredients(ingredient_type, name, grams, sort_order), process_steps(step_type, description, duration_minutes, temperature_f, sort_order), baking_stages(temperature_f, duration_minutes, lid_on, description, sort_order), evaluations(crumb_openness, crumb_evenness, moisture, chew, oven_spring, structure_rating, height_rise, top_crust_color, bottom_crust_color, crispness, flavor, overall_rating, would_bake_again, notes, criterion_notes)")
+    .select("id, name, experiment_name, bake_date, ingredients(ingredient_type, name, grams, sort_order), process_steps(step_type, description, duration_minutes, temperature_f, sort_order), baking_stages(temperature_f, duration_minutes, lid_on, description, sort_order), evaluations(crumb_openness, crumb_evenness, moisture, chew, oven_spring, structure_rating, height_rise, top_crust_color, bottom_crust_color, crispness, flavor, overall_rating, would_bake_again, notes, criterion_notes)")
     .eq("id", id)
     .single();
   if (!bake) notFound();
@@ -53,7 +54,17 @@ export default async function BakePage({ params, searchParams }: { params: Promi
   return (
     <main className="mx-auto min-h-screen max-w-md px-5 pb-16 pt-8 sm:max-w-2xl">
       <Link href="/" className="mb-5 inline-block text-sm font-medium text-stone-500">← Bakes</Link>
-      <header className="mb-7"><p className="mb-2 text-sm font-semibold uppercase tracking-[0.18em] text-stone-500">Bake</p><div className="flex items-start justify-between gap-4"><div><h1 className="text-3xl font-semibold tracking-tight text-stone-900">{bake.name}</h1><p className="mt-2 text-sm text-stone-500">{new Date(`${bake.bake_date}T12:00:00`).toLocaleDateString()}</p></div><div className="rounded-xl bg-stone-100 px-3 py-2 text-right"><div className="text-lg font-semibold">{hydration.toFixed(1)}%</div><div className="text-xs text-stone-500">hydration</div></div></div></header>
+      <header className="mb-7">
+        <p className="mb-2 text-sm font-semibold uppercase tracking-[0.18em] text-stone-500">Bake</p>
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-3xl font-semibold tracking-tight text-stone-900">{bake.name}</h1>
+            <ExperimentNameEditor bakeId={id} initialValue={bake.experiment_name ?? null} />
+            <p className="mt-2 text-sm text-stone-500">{new Date(`${bake.bake_date}T12:00:00`).toLocaleDateString()}</p>
+          </div>
+          <div className="rounded-xl bg-stone-100 px-3 py-2 text-right"><div className="text-lg font-semibold">{hydration.toFixed(1)}%</div><div className="text-xs text-stone-500">hydration</div></div>
+        </div>
+      </header>
 
       <FormulaEditor bakeId={id} initialIngredients={ingredients} defaultOpen={editFormula === "1"} />
       <ProcessForm bakeId={id} initialSteps={steps} initialBaking={baking} initialCooling={cooling} />
@@ -62,7 +73,7 @@ export default async function BakePage({ params, searchParams }: { params: Promi
 
       <section className="mt-6 rounded-3xl border border-stone-200 bg-white p-5 shadow-sm">
         <h2 className="text-lg font-semibold text-stone-900">Bake this again</h2>
-        <p className="mt-1 text-sm leading-6 text-stone-500">Copies the formula and workflow into a new bake dated today. Evaluation and photos stay with this bake.</p>
+        <p className="mt-1 text-sm leading-6 text-stone-500">Copies the formula and workflow into a new bake dated today. Evaluation, photos, and experiment name stay with this bake.</p>
         <form action={cloneBake.bind(null, id)} className="mt-4">
           <button type="submit" className="min-h-12 w-full rounded-xl bg-stone-900 px-4 font-semibold text-white">Clone This</button>
         </form>
