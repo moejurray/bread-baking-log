@@ -7,7 +7,7 @@ import { deleteBake } from "./delete-actions";
 import DeleteBakeButton from "./DeleteBakeButton";
 
 type Ingredient = { ingredient_type: string; name: string; grams: number };
-type Bake = { id: string; name: string; bake_date: string; ingredients: Ingredient[] };
+type Bake = { id: string; name: string; experiment_name: string | null; bake_date: string; ingredients: Ingredient[] };
 
 function bakeMath(ingredients: Ingredient[]) {
   const flours = ingredients.filter((item) => item.ingredient_type === "flour");
@@ -25,7 +25,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
 
   const { data } = await supabase
     .from("bakes")
-    .select("id, name, bake_date, ingredients(ingredient_type, name, grams)")
+    .select("id, name, experiment_name, bake_date, ingredients(ingredient_type, name, grams)")
     .order("bake_date", { ascending: false });
 
   const bakes = (data ?? []) as Bake[];
@@ -50,7 +50,14 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
             return (
               <article key={bake.id} className="rounded-3xl border border-stone-200 bg-white p-5 shadow-sm transition hover:border-stone-300">
                 <Link href={`/bakes/${bake.id}`} className="block">
-                  <div className="flex items-start justify-between gap-4"><div><h2 className="text-xl font-semibold text-stone-900">{bake.name}</h2><p className="mt-1 text-sm text-stone-500">{new Date(`${bake.bake_date}T12:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</p></div><div className="rounded-xl bg-stone-100 px-3 py-2 text-right"><div className="text-lg font-semibold text-stone-900">{math.hydration.toFixed(1)}%</div><div className="text-xs text-stone-500">hydration</div></div></div>
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <h2 className="text-xl font-semibold text-stone-900">{bake.name}</h2>
+                      {bake.experiment_name ? <p className="mt-1 text-sm font-medium text-stone-700">{bake.experiment_name}</p> : null}
+                      <p className="mt-1 text-sm text-stone-500">{new Date(`${bake.bake_date}T12:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</p>
+                    </div>
+                    <div className="rounded-xl bg-stone-100 px-3 py-2 text-right"><div className="text-lg font-semibold text-stone-900">{math.hydration.toFixed(1)}%</div><div className="text-xs text-stone-500">hydration</div></div>
+                  </div>
                   <p className="mt-4 text-sm leading-6 text-stone-600">{math.flours.map((flour) => `${flour.name} ${Number(flour.grams)}g`).join(" + ")}</p><p className="mt-1 text-xs text-stone-400">{math.totalFlour}g total flour · Open bake →</p>
                 </Link>
                 <div className="mt-4 flex gap-3 border-t border-stone-100 pt-4">
