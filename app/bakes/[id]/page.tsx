@@ -7,7 +7,7 @@ import EvaluationForm from "./EvaluationForm";
 type Ingredient = { ingredient_type: string; name: string; grams: number };
 type ProcessStep = { step_type: string; description: string | null; duration_minutes: number | null; temperature_f: number | null; sort_order: number };
 type BakingStage = { temperature_f: number | null; duration_minutes: number | null; lid_on: boolean | null; description: string | null; sort_order: number };
-type Evaluation = { crumb_openness: string | null; crumb_evenness: number | null; moisture: string | null; chew: string | null; oven_spring: number | null; structure_rating: number | null; top_crust_color: number | null; bottom_crust_color: number | null; crust_thickness: string | null; crispness: number | null; flavor: number | null; overall_rating: number | null; would_bake_again: string | null; notes: string | null };
+type Evaluation = { crumb_openness: string | null; crumb_evenness: number | null; moisture: string | null; chew: string | null; oven_spring: number | null; structure_rating: number | null; top_crust_color: number | null; bottom_crust_color: number | null; crust_thickness: string | null; crispness: number | null; flavor: number | null; overall_rating: number | null; would_bake_again: string | null; notes: string | null; criterion_notes: Record<string, string> | null };
 
 export default async function BakePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -17,7 +17,7 @@ export default async function BakePage({ params }: { params: Promise<{ id: strin
 
   const { data: bake } = await supabase
     .from("bakes")
-    .select("id, name, bake_date, ingredients(ingredient_type, name, grams), process_steps(step_type, description, duration_minutes, temperature_f, sort_order), baking_stages(temperature_f, duration_minutes, lid_on, description, sort_order), evaluations(crumb_openness, crumb_evenness, moisture, chew, oven_spring, structure_rating, top_crust_color, bottom_crust_color, crust_thickness, crispness, flavor, overall_rating, would_bake_again, notes)")
+    .select("id, name, bake_date, ingredients(ingredient_type, name, grams), process_steps(step_type, description, duration_minutes, temperature_f, sort_order), baking_stages(temperature_f, duration_minutes, lid_on, description, sort_order), evaluations(crumb_openness, crumb_evenness, moisture, chew, oven_spring, structure_rating, top_crust_color, bottom_crust_color, crust_thickness, crispness, flavor, overall_rating, would_bake_again, notes, criterion_notes)")
     .eq("id", id)
     .single();
   if (!bake) notFound();
