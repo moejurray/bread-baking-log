@@ -16,6 +16,13 @@ export default async function LoginPage({
         <h1 className="text-4xl font-semibold tracking-tight text-stone-900">
           {forgotMode ? "Reset password" : signupMode ? "Create account" : "Sign in"}
         </h1>
+        {!forgotMode ? (
+          <div className="mt-4 rounded-2xl border border-stone-200 bg-stone-50 p-4 text-sm leading-6 text-stone-600">
+            <p className="font-medium text-stone-800">A lightweight bread-baking experiment log for yeast-raised breads and enriched or sweet doughs.</p>
+            <p className="mt-2">Track formulas, process changes, bake results, photos, and variations so you can learn what worked and improve the next bake.</p>
+            <p className="mt-2 text-stone-500">Designed for commercial yeast baking rather than sourdough.</p>
+          </div>
+        ) : null}
         <p className="mt-3 leading-6 text-stone-600">
           {forgotMode
             ? "Enter your email and we’ll send you a reset link."
