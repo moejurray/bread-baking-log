@@ -12,18 +12,10 @@ function numberOrNull(value: FormDataEntryValue | null) {
 
 export async function saveProcess(bakeId: string, formData: FormData) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
+  const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: bake } = await supabase
-    .from("bakes")
-    .select("id")
-    .eq("id", bakeId)
-    .single();
-
+  const { data: bake } = await supabase.from("bakes").select("id").eq("id", bakeId).single();
   if (!bake) redirect("/");
 
   const stepTypes = formData.getAll("step_type").map(String);
@@ -41,6 +33,21 @@ export async function saveProcess(bakeId: string, formData: FormData) {
       sort_order: index,
     }))
     .filter((step) => step.description || step.duration_minutes !== null || step.temperature_f !== null);
+
+  const coolingNames = formData.getAll("cooling_name").map(String);
+  const coolingDurations = formData.getAll("cooling_duration");
+  const coolingTemperatures = formData.getAll("cooling_temperature");
+
+  coolingNames.forEach((name, index) => {
+    processSteps.push({
+      bake_id: bakeId,
+      step_type: "resting",
+      description: name,
+      duration_minutes: numberOrNull(coolingDurations[index] ?? null),
+      temperature_f: numberOrNull(coolingTemperatures[index] ?? null),
+      sort_order: 1000 + index,
+    });
+  });
 
   const bakeTemps = formData.getAll("bake_temperature");
   const bakeDurations = formData.getAll("bake_duration");
