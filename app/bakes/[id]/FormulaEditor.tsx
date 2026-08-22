@@ -90,7 +90,14 @@ export default function FormulaEditor({ bakeId, initialIngredients, defaultOpen 
       </button>
 
       <form ref={formRef} onInput={handleInput} onChange={handleInput} className={open ? "border-t border-stone-100 p-5" : "hidden"}>
-        <div className="mb-4 flex justify-end"><span className={`text-xs font-semibold ${status === "error" ? "text-red-700" : "text-stone-500"}`}>{status === "saving" ? "Saving…" : status === "pending" ? "Changes pending…" : status === "error" ? `Not saved: ${error}` : "✓ Saved"}</span></div>
+        <div className="mb-4 flex items-center justify-between gap-3 rounded-2xl bg-stone-50 px-4 py-3">
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-wide text-stone-500">Live hydration</div>
+            <div className="mt-1 text-2xl font-semibold text-stone-900">{hydration.toFixed(1)}%</div>
+            <div className="text-xs text-stone-500">{Number(waterGrams) || 0}g water ÷ {totalFlour}g flour</div>
+          </div>
+          <span className={`text-xs font-semibold ${status === "error" ? "text-red-700" : "text-stone-500"}`}>{status === "saving" ? "Saving…" : status === "pending" ? "Changes pending…" : status === "error" ? `Not saved: ${error}` : "✓ Saved"}</span>
+        </div>
 
         <div className="space-y-4">
           {flours.map((flour, index) => (
