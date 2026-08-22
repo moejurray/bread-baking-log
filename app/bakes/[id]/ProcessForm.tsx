@@ -19,10 +19,8 @@ const coolingNames = ["Cooling in Dutch oven", "Cooling on rack"];
 
 function preventWheelChange(event: WheelEvent<HTMLInputElement>) { event.currentTarget.blur(); }
 
-export default function ProcessForm({ bakeId, initialSteps, initialBaking }: { bakeId: string; initialSteps: ProcessStep[]; initialBaking: BakingStage[] }) {
-  const existingCooling = initialSteps.filter((step) => coolingNames.includes(step.description ?? ""));
-  const initialProcess = initialSteps.filter((step) => !coolingNames.includes(step.description ?? ""));
-  const [steps, setSteps] = useState(initialProcess.length ? initialProcess : defaultSteps);
+export default function ProcessForm({ bakeId, initialSteps, initialBaking, initialCooling }: { bakeId: string; initialSteps: ProcessStep[]; initialBaking: BakingStage[]; initialCooling: ProcessStep[] }) {
+  const [steps, setSteps] = useState(initialSteps.length ? initialSteps : defaultSteps);
   const [baking, setBaking] = useState(initialBaking.length ? initialBaking : defaultBaking);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [saveState, setSaveState] = useState<SaveState>("saved");
@@ -30,7 +28,7 @@ export default function ProcessForm({ bakeId, initialSteps, initialBaking }: { b
   const formRef = useRef<HTMLFormElement>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const firstRender = useRef(true);
-  const cooling = coolingNames.map((name) => existingCooling.find((step) => step.description === name) ?? { step_type: "resting", description: name, duration_minutes: null, temperature_f: null });
+  const cooling = coolingNames.map((name) => initialCooling.find((step) => step.description === name) ?? { step_type: "resting", description: name, duration_minutes: null, temperature_f: null });
 
   async function saveNow() {
     if (!formRef.current) return;
