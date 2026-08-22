@@ -5,6 +5,7 @@ import { signOut } from "./login/actions";
 import { cloneBake } from "./clone-actions";
 import { deleteBake } from "./delete-actions";
 import DeleteBakeButton from "./DeleteBakeButton";
+import HelpButton from "./HelpButton";
 
 type Ingredient = { ingredient_type: string; name: string; grams: number };
 type Bake = { id: string; name: string; experiment_name: string | null; bake_date: string; ingredients: Ingredient[] };
@@ -34,7 +35,10 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
     <main className="mx-auto flex min-h-screen max-w-md flex-col px-5 pb-24 pt-8 sm:max-w-2xl">
       <header className="mb-8 flex items-start justify-between gap-4">
         <div><p className="mb-2 text-sm font-semibold uppercase tracking-[0.18em] text-stone-500">Bread Baking Log</p><h1 className="text-4xl font-semibold tracking-tight text-stone-900">Bakes</h1></div>
-        <form action={signOut}><button type="submit" className="min-h-10 rounded-xl border border-stone-300 bg-white px-4 text-sm font-medium text-stone-700">Sign out</button></form>
+        <div className="flex gap-2">
+          <HelpButton />
+          <form action={signOut}><button type="submit" className="min-h-10 rounded-xl border border-stone-300 bg-white px-4 text-sm font-medium text-stone-700">Sign out</button></form>
+        </div>
       </header>
 
       {error ? <p className="mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p> : null}
