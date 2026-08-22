@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { cloneBake } from "@/app/clone-actions";
+import HelpButton from "@/app/HelpButton";
 import ProcessForm from "./ProcessForm";
 import EvaluationForm from "./EvaluationForm";
 import PhotosSection from "./PhotosSection";
@@ -53,7 +54,10 @@ export default async function BakePage({ params, searchParams }: { params: Promi
 
   return (
     <main className="mx-auto min-h-screen max-w-md px-5 pb-16 pt-8 sm:max-w-2xl">
-      <Link href="/" className="mb-5 inline-block text-sm font-medium text-stone-500">← Bakes</Link>
+      <div className="mb-5 flex items-center justify-between gap-3">
+        <Link href="/" className="inline-block text-sm font-medium text-stone-500">← Bakes</Link>
+        <HelpButton />
+      </div>
       <header className="mb-7">
         <p className="mb-2 text-sm font-semibold uppercase tracking-[0.18em] text-stone-500">Bake</p>
         <div className="flex items-start justify-between gap-4">
