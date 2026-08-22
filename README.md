@@ -101,6 +101,8 @@ For production authentication, set the Supabase **Site URL** and allowed redirec
 
 This is a small personal project that grew out of wanting a faster way to record bread experiments while baking. It is usable today and intentionally lightweight.
 
+Might add a sourdough recipe option later. Or you do that?
+
 Feedback, bug reports, and ideas are welcome.
 
 ## License
