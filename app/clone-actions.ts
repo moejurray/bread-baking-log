@@ -35,11 +35,7 @@ export async function cloneBake(sourceBakeId: string) {
 
   const { data: newBake, error: bakeError } = await supabase
     .from("bakes")
-    .insert({
-      user_id: user.id,
-      name: source.name,
-      bake_date: todayPacific(),
-    })
+    .insert({ user_id: user.id, name: source.name, bake_date: todayPacific() })
     .select("id")
     .single();
 
@@ -54,7 +50,6 @@ export async function cloneBake(sourceBakeId: string) {
     grams: item.grams,
     sort_order: item.sort_order,
   }));
-
   const processSteps = (source.process_steps ?? []).map((step) => ({
     bake_id: newBake.id,
     step_type: step.step_type,
@@ -63,7 +58,6 @@ export async function cloneBake(sourceBakeId: string) {
     temperature_f: step.temperature_f,
     sort_order: step.sort_order,
   }));
-
   const bakingStages = (source.baking_stages ?? []).map((stage) => ({
     bake_id: newBake.id,
     temperature_f: stage.temperature_f,
@@ -75,27 +69,16 @@ export async function cloneBake(sourceBakeId: string) {
 
   if (ingredients.length) {
     const { error } = await supabase.from("ingredients").insert(ingredients);
-    if (error) {
-      await supabase.from("bakes").delete().eq("id", newBake.id);
-      redirect(`/?error=${encodeURIComponent(error.message)}`);
-    }
+    if (error) { await supabase.from("bakes").delete().eq("id", newBake.id); redirect(`/?error=${encodeURIComponent(error.message)}`); }
   }
-
   if (processSteps.length) {
     const { error } = await supabase.from("process_steps").insert(processSteps);
-    if (error) {
-      await supabase.from("bakes").delete().eq("id", newBake.id);
-      redirect(`/?error=${encodeURIComponent(error.message)}`);
-    }
+    if (error) { await supabase.from("bakes").delete().eq("id", newBake.id); redirect(`/?error=${encodeURIComponent(error.message)}`); }
   }
-
   if (bakingStages.length) {
     const { error } = await supabase.from("baking_stages").insert(bakingStages);
-    if (error) {
-      await supabase.from("bakes").delete().eq("id", newBake.id);
-      redirect(`/?error=${encodeURIComponent(error.message)}`);
-    }
+    if (error) { await supabase.from("bakes").delete().eq("id", newBake.id); redirect(`/?error=${encodeURIComponent(error.message)}`); }
   }
 
-  redirect(`/bakes/${newBake.id}`);
+  redirect(`/bakes/${newBake.id}?editFormula=1`);
 }
