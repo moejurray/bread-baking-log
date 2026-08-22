@@ -18,7 +18,16 @@ const criterionLabels: Record<string, string> = {
 };
 
 function Help({ text }: { text: string }) {
-  return <details className="relative inline-block align-middle">
+  const detailsRef = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    function outside(event: PointerEvent) {
+      const d = detailsRef.current;
+      if (d?.open && event.target instanceof Node && !d.contains(event.target)) d.open = false;
+    }
+    document.addEventListener("pointerdown", outside);
+    return () => document.removeEventListener("pointerdown", outside);
+  }, []);
+  return <details ref={detailsRef} className="relative inline-block align-middle">
     <summary className="ml-1 inline-flex h-5 w-5 cursor-pointer list-none items-center justify-center rounded-full border border-stone-300 bg-white text-[11px] font-bold text-stone-500">?</summary>
     <div className="fixed left-4 right-4 top-1/2 z-50 -translate-y-1/2 rounded-xl border border-stone-200 bg-white p-4 text-sm font-normal leading-6 text-stone-600 shadow-xl sm:absolute sm:left-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-64 sm:translate-y-0 sm:p-3 sm:text-xs sm:leading-5">
       {text}
@@ -29,7 +38,7 @@ function Help({ text }: { text: string }) {
 function NotePopover({ criterion, initialValue, onChanged }: { criterion: string; initialValue: string; onChanged: (criterion: string, value: string) => void }) {
   const [value, setValue] = useState(initialValue); const detailsRef = useRef<HTMLDetailsElement>(null);
   useEffect(() => { function outside(event: PointerEvent) { const d = detailsRef.current; if (d?.open && event.target instanceof Node && !d.contains(event.target)) d.open = false; } document.addEventListener("pointerdown", outside); return () => document.removeEventListener("pointerdown", outside); }, []);
-  return <details ref={detailsRef} className="relative inline-block align-middle"><summary title="Add note" className={`ml-1 inline-flex h-5 w-5 cursor-pointer list-none items-center justify-center rounded-full border text-[11px] ${value ? "border-stone-700 bg-stone-800 text-white" : "border-stone-300 bg-white text-stone-500"}`}>✎</summary><div className="absolute right-0 z-40 mt-2 w-72 rounded-xl border border-stone-200 bg-white p-3 shadow-lg"><div className="mb-2 text-xs font-semibold text-stone-700">Note about {criterionLabels[criterion]}</div><textarea name={`criterion_note_${criterion}`} value={value} onChange={(e) => { setValue(e.target.value); onChanged(criterion, e.target.value); }} placeholder="Add a quick observation…" rows={3} className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm font-normal text-stone-800" /><div className="mt-1 text-[11px] font-normal text-stone-400">Autosaves. Click anywhere outside this note to close it.</div></div></details>;
+  return <details ref={detailsRef} className="relative inline-block align-middle"><summary title="Add note" className={`ml-1 inline-flex h-5 w-5 cursor-pointer list-none items-center justify-center rounded-full border text-[11px] ${value ? "border-stone-700 bg-stone-800 text-white" : "border-stone-300 bg-white text-stone-500"}`}>✎</summary><div className="fixed left-4 right-4 top-1/2 z-50 -translate-y-1/2 rounded-xl border border-stone-200 bg-white p-4 shadow-xl sm:absolute sm:left-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-72 sm:translate-y-0 sm:p-3"><div className="mb-2 text-xs font-semibold text-stone-700">Note about {criterionLabels[criterion]}</div><textarea name={`criterion_note_${criterion}`} value={value} onChange={(e) => { setValue(e.target.value); onChanged(criterion, e.target.value); }} placeholder="Add a quick observation…" rows={3} className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm font-normal text-stone-800" /><div className="mt-1 text-[11px] font-normal text-stone-400">Autosaves. Tap anywhere outside this note to close it.</div></div></details>;
 }
 function Tools({ criterion, help, note, onNoteChanged }: { criterion: string; help: string; note: string; onNoteChanged: (criterion: string, value: string) => void }) { return <><Help text={help} /><NotePopover criterion={criterion} initialValue={note} onChanged={onNoteChanged} /></>; }
 function Rating({ name, label, value, help, note, onNoteChanged }: { name: string; label: string; value: number | null; help: string; note: string; onNoteChanged: (criterion: string, value: string) => void }) { return <label className="text-sm font-medium text-stone-700"><span>{label}<Tools criterion={name} help={`${help} 1 is least desirable; 5 is best.`} note={note} onNoteChanged={onNoteChanged} /></span><select name={name} defaultValue={value ?? ""} className="mt-2 min-h-12 w-full rounded-xl border border-stone-300 bg-white px-3 text-base"><option value="">—</option>{ratingOptions.map((r) => <option key={r} value={r}>{r}</option>)}</select></label>; }
