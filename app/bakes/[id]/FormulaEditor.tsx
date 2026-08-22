@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type FormEvent, type WheelEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type WheelEvent } from "react";
 import { saveFormula } from "./formula-actions";
 
 type Ingredient = { ingredient_type: string; name: string; grams: number; sort_order?: number };
@@ -34,13 +34,30 @@ export default function FormulaEditor({ bakeId, initialIngredients, defaultOpen 
   const formRef = useRef<HTMLFormElement>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const firstRender = useRef(true);
+  const selectInUseRef = useRef(false);
 
   const totalFlour = useMemo(() => flours.reduce((sum, flour) => sum + (Number(flour.grams) || 0), 0), [flours]);
   const hydration = totalFlour > 0 ? ((Number(waterGrams) || 0) / totalFlour) * 100 : 0;
 
+  function clearSaveTimer() {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  }
+
   async function saveNow() {
     if (!formRef.current) return;
-    if (timerRef.current) clearTimeout(timerRef.current);
+
+    // Mobile browsers render <select> as a native picker. Re-rendering while that
+    // picker is open can dismiss it before the user's selection is committed.
+    if (selectInUseRef.current || document.activeElement instanceof HTMLSelectElement) {
+      clearSaveTimer();
+      timerRef.current = setTimeout(saveNow, 700);
+      return;
+    }
+
+    clearSaveTimer();
     setStatus("saving");
     setError("");
     const result = await saveFormula(bakeId, new FormData(formRef.current));
@@ -50,7 +67,7 @@ export default function FormulaEditor({ bakeId, initialIngredients, defaultOpen 
 
   function scheduleSave() {
     setStatus("pending");
-    if (timerRef.current) clearTimeout(timerRef.current);
+    clearSaveTimer();
     timerRef.current = setTimeout(saveNow, 900);
   }
 
@@ -60,7 +77,7 @@ export default function FormulaEditor({ bakeId, initialIngredients, defaultOpen 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [flours, waterGrams, saltGrams, yeastGrams, yeastType]);
 
-  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
+  useEffect(() => () => clearSaveTimer(), []);
 
   function updateFlour(id: number, field: keyof Omit<FlourRow, "id">, value: string) {
     setFlours((rows) => rows.map((row) => row.id === id ? { ...row, [field]: value } : row));
@@ -74,9 +91,14 @@ export default function FormulaEditor({ bakeId, initialIngredients, defaultOpen 
     setFlours((rows) => rows.filter((row) => row.id !== id));
   }
 
-  function handleInput(event: FormEvent<HTMLFormElement>) {
-    const target = event.target as HTMLInputElement | HTMLSelectElement;
-    if (target.name) scheduleSave();
+  function beginSelect() {
+    selectInUseRef.current = true;
+    clearSaveTimer();
+  }
+
+  function endSelect() {
+    selectInUseRef.current = false;
+    scheduleSave();
   }
 
   return (
@@ -89,7 +111,7 @@ export default function FormulaEditor({ bakeId, initialIngredients, defaultOpen 
         <span className="text-xl text-stone-400">{open ? "−" : "+"}</span>
       </button>
 
-      <form ref={formRef} onInput={handleInput} onChange={handleInput} className={open ? "border-t border-stone-100 p-5" : "hidden"}>
+      <form ref={formRef} className={open ? "border-t border-stone-100 p-5" : "hidden"}>
         <div className="mb-4 flex items-center justify-between gap-3 rounded-2xl bg-stone-50 px-4 py-3">
           <div>
             <div className="text-xs font-semibold uppercase tracking-wide text-stone-500">Live hydration</div>
@@ -104,7 +126,20 @@ export default function FormulaEditor({ bakeId, initialIngredients, defaultOpen 
             <div key={flour.id} className="rounded-2xl bg-stone-50 p-4">
               <div className="mb-3 flex items-center justify-between"><span className="text-sm font-semibold text-stone-700">Flour {index + 1}</span>{flours.length > 1 ? <button type="button" onClick={() => removeFlour(flour.id)} className="text-sm font-medium text-stone-500">Remove</button> : null}</div>
               <div className="grid grid-cols-[1fr_7rem] gap-3">
-                <select name="flour_name" value={flour.name} onChange={(event) => updateFlour(flour.id, "name", event.target.value)} className="min-h-12 rounded-xl border border-stone-300 bg-white px-3 text-base">{flourOptions.map((option) => <option key={option}>{option}</option>)}</select>
+                <select
+                  name="flour_name"
+                  value={flour.name}
+                  onPointerDown={beginSelect}
+                  onFocus={beginSelect}
+                  onChange={(event) => {
+                    updateFlour(flour.id, "name", event.target.value);
+                    selectInUseRef.current = false;
+                  }}
+                  onBlur={endSelect}
+                  className="min-h-12 rounded-xl border border-stone-300 bg-white px-3 text-base"
+                >
+                  {flourOptions.map((option) => <option key={option}>{option}</option>)}
+                </select>
                 <div className="relative"><input name="flour_grams" type="number" min="0" step="0.1" value={flour.grams} onChange={(event) => updateFlour(flour.id, "grams", event.target.value)} onWheel={preventWheelChange} className="min-h-12 w-full rounded-xl border border-stone-300 bg-white px-3 pr-8 text-base" /><span className="pointer-events-none absolute right-3 top-3 text-stone-400">g</span></div>
               </div>
               {flour.name === "Other" ? <input name="flour_custom" value={flour.custom} onChange={(event) => updateFlour(flour.id, "custom", event.target.value)} placeholder="Flour name" className="mt-3 min-h-12 w-full rounded-xl border border-stone-300 bg-white px-3 text-base" /> : <input type="hidden" name="flour_custom" value="" />}
@@ -119,7 +154,22 @@ export default function FormulaEditor({ bakeId, initialIngredients, defaultOpen 
           <label className="text-sm font-medium text-stone-700">Salt<input name="salt_grams" type="number" min="0" step="0.1" value={saltGrams} onChange={(event) => setSaltGrams(event.target.value)} onWheel={preventWheelChange} className="mt-2 min-h-12 w-full rounded-xl border border-stone-300 px-3" /></label>
         </div>
         <div className="mt-4 grid grid-cols-[1fr_7rem] gap-3">
-          <label className="text-sm font-medium text-stone-700">Yeast type<select name="yeast_type" value={yeastType} onChange={(event) => setYeastType(event.target.value)} className="mt-2 min-h-12 w-full rounded-xl border border-stone-300 bg-white px-3"><option>Instant yeast</option><option>Active dry yeast</option><option>Fresh yeast</option></select></label>
+          <label className="text-sm font-medium text-stone-700">Yeast type
+            <select
+              name="yeast_type"
+              value={yeastType}
+              onPointerDown={beginSelect}
+              onFocus={beginSelect}
+              onChange={(event) => {
+                setYeastType(event.target.value);
+                selectInUseRef.current = false;
+              }}
+              onBlur={endSelect}
+              className="mt-2 min-h-12 w-full rounded-xl border border-stone-300 bg-white px-3"
+            >
+              <option>Instant yeast</option><option>Active dry yeast</option><option>Fresh yeast</option>
+            </select>
+          </label>
           <label className="text-sm font-medium text-stone-700">Yeast<input name="yeast_grams" type="number" min="0" step="0.1" value={yeastGrams} onChange={(event) => setYeastGrams(event.target.value)} onWheel={preventWheelChange} className="mt-2 min-h-12 w-full rounded-xl border border-stone-300 px-3" /></label>
         </div>
       </form>
