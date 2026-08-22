@@ -3,11 +3,13 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import ProcessForm from "./ProcessForm";
 import EvaluationForm from "./EvaluationForm";
+import PhotosSection from "./PhotosSection";
 
 type Ingredient = { ingredient_type: string; name: string; grams: number };
 type ProcessStep = { step_type: string; description: string | null; duration_minutes: number | null; temperature_f: number | null; sort_order: number };
 type BakingStage = { temperature_f: number | null; duration_minutes: number | null; lid_on: boolean | null; description: string | null; sort_order: number };
 type Evaluation = { crumb_openness: string | null; crumb_evenness: number | null; moisture: string | null; chew: string | null; oven_spring: number | null; structure_rating: number | null; height_rise: number | null; top_crust_color: number | null; bottom_crust_color: number | null; crispness: number | null; flavor: number | null; overall_rating: number | null; would_bake_again: string | null; notes: string | null; criterion_notes: Record<string, string> | null };
+type PhotoRow = { id: string; storage_path: string; caption: string | null };
 
 export default async function BakePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -21,6 +23,19 @@ export default async function BakePage({ params }: { params: Promise<{ id: strin
     .eq("id", id)
     .single();
   if (!bake) notFound();
+
+  const { data: photoRows } = await supabase
+    .from("bake_photos")
+    .select("id, storage_path, caption")
+    .eq("bake_id", id)
+    .order("created_at", { ascending: false });
+
+  const photos = await Promise.all(
+    ((photoRows ?? []) as PhotoRow[]).map(async (photo) => {
+      const { data } = await supabase.storage.from("bake-photos").createSignedUrl(photo.storage_path, 60 * 60);
+      return { ...photo, signed_url: data?.signedUrl ?? "" };
+    })
+  );
 
   const ingredients = (bake.ingredients ?? []) as Ingredient[];
   const totalFlour = ingredients.filter((item) => item.ingredient_type === "flour").reduce((sum, item) => sum + Number(item.grams), 0);
@@ -44,6 +59,7 @@ export default async function BakePage({ params }: { params: Promise<{ id: strin
 
       <ProcessForm bakeId={id} initialSteps={steps} initialBaking={baking} initialCooling={cooling} />
       <EvaluationForm bakeId={id} initial={evaluation} />
+      <PhotosSection bakeId={id} userId={user.id} initialPhotos={photos.filter((photo) => photo.signed_url)} />
     </main>
   );
 }
