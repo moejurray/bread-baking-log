@@ -17,7 +17,14 @@ const criterionLabels: Record<string, string> = {
   crispness: "Crispness", flavor: "Flavor", overall_rating: "Overall", would_bake_again: "Bake again",
 };
 
-function Help({ text }: { text: string }) { return <details className="relative inline-block align-middle"><summary className="ml-1 inline-flex h-5 w-5 cursor-pointer list-none items-center justify-center rounded-full border border-stone-300 bg-white text-[11px] font-bold text-stone-500">?</summary><div className="absolute right-0 z-30 mt-2 w-64 rounded-xl border border-stone-200 bg-white p-3 text-xs font-normal leading-5 text-stone-600 shadow-lg">{text}</div></details>; }
+function Help({ text }: { text: string }) {
+  return <details className="relative inline-block align-middle">
+    <summary className="ml-1 inline-flex h-5 w-5 cursor-pointer list-none items-center justify-center rounded-full border border-stone-300 bg-white text-[11px] font-bold text-stone-500">?</summary>
+    <div className="fixed left-4 right-4 top-1/2 z-50 -translate-y-1/2 rounded-xl border border-stone-200 bg-white p-4 text-sm font-normal leading-6 text-stone-600 shadow-xl sm:absolute sm:left-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-64 sm:translate-y-0 sm:p-3 sm:text-xs sm:leading-5">
+      {text}
+    </div>
+  </details>;
+}
 
 function NotePopover({ criterion, initialValue, onChanged }: { criterion: string; initialValue: string; onChanged: (criterion: string, value: string) => void }) {
   const [value, setValue] = useState(initialValue); const detailsRef = useRef<HTMLDetailsElement>(null);
