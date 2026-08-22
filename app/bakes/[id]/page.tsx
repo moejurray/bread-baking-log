@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { cloneBake } from "@/app/clone-actions";
 import ProcessForm from "./ProcessForm";
 import EvaluationForm from "./EvaluationForm";
 import PhotosSection from "./PhotosSection";
@@ -60,6 +61,14 @@ export default async function BakePage({ params }: { params: Promise<{ id: strin
       <ProcessForm bakeId={id} initialSteps={steps} initialBaking={baking} initialCooling={cooling} />
       <EvaluationForm bakeId={id} initial={evaluation} />
       <PhotosSection bakeId={id} userId={user.id} initialPhotos={photos.filter((photo) => photo.signed_url)} />
+
+      <section className="mt-6 rounded-3xl border border-stone-200 bg-white p-5 shadow-sm">
+        <h2 className="text-lg font-semibold text-stone-900">Bake this again</h2>
+        <p className="mt-1 text-sm leading-6 text-stone-500">Copies the formula and workflow into a new bake dated today. Evaluation and photos stay with this bake.</p>
+        <form action={cloneBake.bind(null, id)} className="mt-4">
+          <button type="submit" className="min-h-12 w-full rounded-xl bg-stone-900 px-4 font-semibold text-white">Clone This</button>
+        </form>
+      </section>
     </main>
   );
 }
