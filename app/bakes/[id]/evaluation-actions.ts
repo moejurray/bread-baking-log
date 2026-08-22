@@ -2,6 +2,22 @@
 
 import { createClient } from "@/lib/supabase/server";
 
+const criterionKeys = [
+  "crumb_openness",
+  "crumb_evenness",
+  "moisture",
+  "chew",
+  "oven_spring",
+  "structure_rating",
+  "top_crust_color",
+  "bottom_crust_color",
+  "crust_thickness",
+  "crispness",
+  "flavor",
+  "overall_rating",
+  "would_bake_again",
+];
+
 function integerOrNull(value: FormDataEntryValue | null) {
   const text = String(value ?? "").trim();
   if (!text) return null;
@@ -22,6 +38,12 @@ export async function saveEvaluation(bakeId: string, formData: FormData) {
   const { data: bake } = await supabase.from("bakes").select("id").eq("id", bakeId).single();
   if (!bake) return { ok: false, error: "Bake not found." };
 
+  const criterionNotes = Object.fromEntries(
+    criterionKeys
+      .map((key) => [key, String(formData.get(`criterion_note_${key}`) ?? "").trim()] as const)
+      .filter(([, value]) => value.length > 0)
+  );
+
   const payload = {
     bake_id: bakeId,
     crumb_openness: textOrNull(formData.get("crumb_openness")),
@@ -38,6 +60,7 @@ export async function saveEvaluation(bakeId: string, formData: FormData) {
     overall_rating: integerOrNull(formData.get("overall_rating")),
     would_bake_again: textOrNull(formData.get("would_bake_again")),
     notes: textOrNull(formData.get("evaluation_notes")),
+    criterion_notes: criterionNotes,
     evaluated_at: new Date().toISOString(),
   };
 
