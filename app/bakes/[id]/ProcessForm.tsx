@@ -3,17 +3,17 @@
 import { useEffect, useRef, useState, type DragEvent, type FormEvent, type PointerEvent as ReactPointerEvent, type WheelEvent } from "react";
 import { saveProcess } from "./actions";
 
-type ProcessStep = { step_type: string; description: string | null; duration_minutes: number | null; temperature_f: number | null };
+type ProcessStep = { step_type: string; description: string | null; note: string | null; duration_minutes: number | null; temperature_f: number | null };
 type BakingStage = { temperature_f: number | null; duration_minutes: number | null; lid_on: boolean | null; description: string | null };
 type SaveState = "saved" | "saving" | "unsaved" | "error";
 type SectionName = "process" | "baking" | "cooling";
 
 const defaultSteps: ProcessStep[] = [
-  { step_type: "mixing", description: "", duration_minutes: null, temperature_f: null },
-  { step_type: "kneading", description: "", duration_minutes: null, temperature_f: null },
-  { step_type: "proofing", description: "First proof", duration_minutes: null, temperature_f: null },
-  { step_type: "shaping", description: "", duration_minutes: null, temperature_f: null },
-  { step_type: "proofing", description: "Final proof", duration_minutes: null, temperature_f: null },
+  { step_type: "mixing", description: "", note: "", duration_minutes: null, temperature_f: null },
+  { step_type: "kneading", description: "", note: "", duration_minutes: null, temperature_f: null },
+  { step_type: "proofing", description: "First proof", note: "", duration_minutes: null, temperature_f: null },
+  { step_type: "shaping", description: "", note: "", duration_minutes: null, temperature_f: null },
+  { step_type: "proofing", description: "Final proof", note: "", duration_minutes: null, temperature_f: null },
 ];
 const defaultBaking: BakingStage[] = [
   { temperature_f: 450, duration_minutes: null, lid_on: true, description: "" },
@@ -22,6 +22,30 @@ const defaultBaking: BakingStage[] = [
 const coolingNames = ["Cooling in Dutch oven", "Cooling on rack"];
 
 function preventWheelChange(event: WheelEvent<HTMLInputElement>) { event.currentTarget.blur(); }
+
+function StepNote({ initialValue, stepNumber }: { initialValue: string; stepNumber: number }) {
+  const [value, setValue] = useState(initialValue);
+  const detailsRef = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    function outside(event: PointerEvent) {
+      const d = detailsRef.current;
+      if (d?.open && event.target instanceof Node && !d.contains(event.target)) d.open = false;
+    }
+    document.addEventListener("pointerdown", outside);
+    return () => document.removeEventListener("pointerdown", outside);
+  }, []);
+
+  return (
+    <details ref={detailsRef} className="relative inline-block align-middle">
+      <summary title="Add note" className={`inline-flex h-9 w-9 cursor-pointer list-none items-center justify-center rounded-full border text-sm ${value ? "border-stone-700 bg-stone-800 text-white" : "border-stone-300 bg-white text-stone-500"}`}>✎</summary>
+      <div className="fixed left-4 right-4 top-1/2 z-50 -translate-y-1/2 rounded-xl border border-stone-200 bg-white p-4 shadow-xl sm:absolute sm:left-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-72 sm:translate-y-0 sm:p-3">
+        <div className="mb-2 text-xs font-semibold text-stone-700">Note about Step {stepNumber}</div>
+        <textarea name="step_note" value={value} onChange={(e) => setValue(e.target.value)} placeholder="Add a quick observation…" rows={3} className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm font-normal text-stone-800" />
+        <div className="mt-1 text-[11px] font-normal text-stone-400">Autosaves. Tap anywhere outside this note to close it.</div>
+      </div>
+    </details>
+  );
+}
 
 export default function ProcessForm({ bakeId, initialSteps, initialBaking, initialCooling }: { bakeId: string; initialSteps: ProcessStep[]; initialBaking: BakingStage[]; initialCooling: ProcessStep[] }) {
   const [steps, setSteps] = useState(initialSteps.length ? initialSteps : defaultSteps);
@@ -38,7 +62,7 @@ export default function ProcessForm({ bakeId, initialSteps, initialBaking, initi
   const touchFromRef = useRef<number | null>(null);
   const touchOverRef = useRef<number | null>(null);
 
-  const cooling = coolingNames.map((name) => initialCooling.find((step) => step.description === name) ?? { step_type: "resting", description: name, duration_minutes: null, temperature_f: null });
+  const cooling = coolingNames.map((name) => initialCooling.find((step) => step.description === name) ?? { step_type: "resting", description: name, note: null, duration_minutes: null, temperature_f: null });
 
   async function saveNow() {
     if (!formRef.current) return;
@@ -50,41 +74,24 @@ export default function ProcessForm({ bakeId, initialSteps, initialBaking, initi
   function scheduleSave() { setSaveState("unsaved"); if (timerRef.current) clearTimeout(timerRef.current); timerRef.current = setTimeout(saveNow, 900); }
   useEffect(() => { if (firstRender.current) { firstRender.current = false; return; } scheduleSave(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [steps, baking]);
   useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
-  function handleChange(event: FormEvent<HTMLFormElement>) { const target = event.target as HTMLInputElement | HTMLSelectElement; if (target.name) scheduleSave(); }
+  function handleChange(event: FormEvent<HTMLFormElement>) { const target = event.target as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement; if (target.name) scheduleSave(); }
 
-  function addStep() { setSteps((current) => [...current, { step_type: "other", description: "", duration_minutes: null, temperature_f: null }]); }
+  function addStep() { setSteps((current) => [...current, { step_type: "other", description: "", note: "", duration_minutes: null, temperature_f: null }]); }
   function deleteStep(index: number) { setSteps((current) => current.filter((_, itemIndex) => itemIndex !== index)); }
-  function moveStep(from: number, to: number) {
-    if (to < 0 || to >= steps.length || from === to) return;
-    setSteps((current) => { const next = [...current]; const [moved] = next.splice(from, 1); next.splice(to, 0, moved); return next; });
-  }
+  function moveStep(from: number, to: number) { if (to < 0 || to >= steps.length || from === to) return; setSteps((current) => { const next = [...current]; const [moved] = next.splice(from, 1); next.splice(to, 0, moved); return next; }); }
   function dropStep(event: DragEvent<HTMLDivElement>, index: number) { event.preventDefault(); if (draggedIndex !== null) moveStep(draggedIndex, index); setDraggedIndex(null); }
 
   function beginTouchDrag(event: ReactPointerEvent<HTMLSpanElement>, index: number) {
     if (event.pointerType === "mouse") return;
-    event.preventDefault();
-    touchFromRef.current = index;
-    touchOverRef.current = index;
-    setTouchTargetIndex(index);
-    event.currentTarget.setPointerCapture(event.pointerId);
+    event.preventDefault(); touchFromRef.current = index; touchOverRef.current = index; setTouchTargetIndex(index); event.currentTarget.setPointerCapture(event.pointerId);
   }
   function continueTouchDrag(event: ReactPointerEvent<HTMLSpanElement>) {
     if (event.pointerType === "mouse" || touchFromRef.current === null) return;
-    event.preventDefault();
-    const element = document.elementFromPoint(event.clientX, event.clientY);
-    const stepCard = element?.closest<HTMLElement>("[data-step-index]");
-    if (!stepCard) return;
-    const index = Number(stepCard.dataset.stepIndex);
-    if (Number.isInteger(index)) { touchOverRef.current = index; setTouchTargetIndex(index); }
+    event.preventDefault(); const element = document.elementFromPoint(event.clientX, event.clientY); const stepCard = element?.closest<HTMLElement>("[data-step-index]"); if (!stepCard) return; const index = Number(stepCard.dataset.stepIndex); if (Number.isInteger(index)) { touchOverRef.current = index; setTouchTargetIndex(index); }
   }
   function endTouchDrag(event: ReactPointerEvent<HTMLSpanElement>) {
     if (event.pointerType === "mouse" || touchFromRef.current === null) return;
-    event.preventDefault();
-    const from = touchFromRef.current;
-    const to = touchOverRef.current ?? from;
-    touchFromRef.current = null; touchOverRef.current = null; setTouchTargetIndex(null);
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
-    moveStep(from, to);
+    event.preventDefault(); const from = touchFromRef.current; const to = touchOverRef.current ?? from; touchFromRef.current = null; touchOverRef.current = null; setTouchTargetIndex(null); if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); moveStep(from, to);
   }
 
   function addBakingStage() { setBaking((current) => [...current, { temperature_f: 450, duration_minutes: null, lid_on: false, description: "" }]); }
@@ -103,9 +110,9 @@ export default function ProcessForm({ bakeId, initialSteps, initialBaking, initi
       <div className={openSection === "process" ? "border-t border-stone-100 p-5" : "hidden"}>
         <div className="space-y-4">
           {steps.map((step, index) => <div key={index} data-step-index={index} draggable onDragStart={() => setDraggedIndex(index)} onDragOver={(event) => event.preventDefault()} onDrop={(event) => dropStep(event, index)} className={`rounded-2xl bg-stone-50 p-4 transition ${touchTargetIndex === index ? "ring-2 ring-stone-400" : ""}`}>
-            <div className="mb-3 flex items-center justify-between">
+            <div className="mb-3 flex items-center justify-between gap-2">
               <span onPointerDown={(event) => beginTouchDrag(event, index)} onPointerMove={continueTouchDrag} onPointerUp={endTouchDrag} onPointerCancel={endTouchDrag} className="cursor-grab select-none touch-none text-sm font-semibold text-stone-500">☰ Step {index + 1}</span>
-              <div className="flex gap-2"><button type="button" onClick={() => moveStep(index, index - 1)} disabled={index === 0} className="min-h-9 min-w-10 rounded-lg border bg-white disabled:opacity-30">↑</button><button type="button" onClick={() => moveStep(index, index + 1)} disabled={index === steps.length - 1} className="min-h-9 min-w-10 rounded-lg border bg-white disabled:opacity-30">↓</button><button type="button" onClick={() => deleteStep(index)} className="flex h-9 w-9 items-center justify-center rounded-full border bg-white">−</button></div>
+              <div className="flex gap-2"><StepNote initialValue={step.note ?? ""} stepNumber={index + 1} /><button type="button" onClick={() => moveStep(index, index - 1)} disabled={index === 0} className="min-h-9 min-w-10 rounded-lg border bg-white disabled:opacity-30">↑</button><button type="button" onClick={() => moveStep(index, index + 1)} disabled={index === steps.length - 1} className="min-h-9 min-w-10 rounded-lg border bg-white disabled:opacity-30">↓</button><button type="button" onClick={() => deleteStep(index)} className="flex h-9 w-9 items-center justify-center rounded-full border bg-white">−</button></div>
             </div>
             <div className="grid grid-cols-2 gap-3"><label className="text-sm font-medium">Step<select name="step_type" defaultValue={step.step_type} className="mt-2 min-h-12 w-full rounded-xl border bg-white px-3"><option value="mixing">Mixing</option><option value="kneading">Kneading</option><option value="proofing">Proofing</option><option value="shaping">Shaping</option><option value="resting">Resting</option><option value="other">Other</option></select></label><label className="text-sm font-medium">Minutes<input name="step_duration" type="number" min="0" defaultValue={step.duration_minutes ?? ""} onWheel={preventWheelChange} className="mt-2 min-h-12 w-full rounded-xl border px-3" /></label></div>
             <label className="mt-3 block text-sm font-medium">What did you do?<input name="step_description" defaultValue={step.description ?? ""} className="mt-2 min-h-12 w-full rounded-xl border px-3" /></label>
