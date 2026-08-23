@@ -25,10 +25,10 @@ function preventWheelChange(event: WheelEvent<HTMLInputElement>) { event.current
 
 function DurationField({ name, unitName, initialMinutes }: { name: string; unitName: string; initialMinutes: number | null }) {
   return (
-    <label className="text-sm font-medium">Duration
-      <div className="mt-2 grid grid-cols-[minmax(5.5rem,1fr)_4.75rem] gap-2">
+    <label className="text-sm font-medium min-w-0">Duration
+      <div className="mt-2 grid min-w-0 grid-cols-[minmax(0,1fr)_3.75rem] gap-2">
         <input name={name} type="number" min="0" step="0.01" inputMode="decimal" defaultValue={initialMinutes ?? ""} onWheel={preventWheelChange} className="min-h-12 min-w-0 w-full rounded-xl border px-3 text-base" />
-        <select name={unitName} defaultValue="minutes" className="min-h-12 w-full rounded-xl border bg-white px-2 text-sm font-medium">
+        <select name={unitName} defaultValue="minutes" className="min-h-12 min-w-0 w-full rounded-xl border bg-white px-1.5 text-sm font-medium">
           <option value="minutes">min</option>
           <option value="hours">hr</option>
         </select>
