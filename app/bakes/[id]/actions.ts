@@ -19,6 +19,7 @@ export async function saveProcess(bakeId: string, formData: FormData) {
 
   const stepTypes = formData.getAll("step_type").map(String);
   const descriptions = formData.getAll("step_description").map(String);
+  const notes = formData.getAll("step_note").map(String);
   const durations = formData.getAll("step_duration");
   const temperatures = formData.getAll("step_temperature");
 
@@ -26,15 +27,24 @@ export async function saveProcess(bakeId: string, formData: FormData) {
     bake_id: bakeId,
     step_type: stepType,
     description: descriptions[index]?.trim() || null,
+    note: notes[index]?.trim() || null,
     duration_minutes: numberOrNull(durations[index] ?? null),
     temperature_f: numberOrNull(temperatures[index] ?? null),
     sort_order: index,
-  })).filter((step) => step.description || step.duration_minutes !== null || step.temperature_f !== null);
+  })).filter((step) => step.description || step.note || step.duration_minutes !== null || step.temperature_f !== null);
 
   const coolingNames = formData.getAll("cooling_name").map(String);
   const coolingDurations = formData.getAll("cooling_duration");
   const coolingTemperatures = formData.getAll("cooling_temperature");
-  coolingNames.forEach((name, index) => processSteps.push({ bake_id: bakeId, step_type: "resting", description: name, duration_minutes: numberOrNull(coolingDurations[index] ?? null), temperature_f: numberOrNull(coolingTemperatures[index] ?? null), sort_order: 1000 + index }));
+  coolingNames.forEach((name, index) => processSteps.push({
+    bake_id: bakeId,
+    step_type: "resting",
+    description: name,
+    note: null,
+    duration_minutes: numberOrNull(coolingDurations[index] ?? null),
+    temperature_f: numberOrNull(coolingTemperatures[index] ?? null),
+    sort_order: 1000 + index,
+  }));
 
   const bakeTemps = formData.getAll("bake_temperature");
   const bakeDurations = formData.getAll("bake_duration");
