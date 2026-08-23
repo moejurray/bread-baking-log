@@ -9,6 +9,12 @@ function numberOrNull(value: FormDataEntryValue | null) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function durationMinutes(value: FormDataEntryValue | null, unit: string | undefined) {
+  const parsed = numberOrNull(value);
+  if (parsed === null) return null;
+  return Math.round(unit === "hours" ? parsed * 60 : parsed);
+}
+
 export async function saveProcess(bakeId: string, formData: FormData) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -21,6 +27,7 @@ export async function saveProcess(bakeId: string, formData: FormData) {
   const descriptions = formData.getAll("step_description").map(String);
   const notes = formData.getAll("step_note").map(String);
   const durations = formData.getAll("step_duration");
+  const durationUnits = formData.getAll("step_duration_unit").map(String);
   const temperatures = formData.getAll("step_temperature");
 
   const processSteps = stepTypes.map((stepType, index) => ({
@@ -28,29 +35,38 @@ export async function saveProcess(bakeId: string, formData: FormData) {
     step_type: stepType,
     description: descriptions[index]?.trim() || null,
     note: notes[index]?.trim() || null,
-    duration_minutes: numberOrNull(durations[index] ?? null),
+    duration_minutes: durationMinutes(durations[index] ?? null, durationUnits[index]),
     temperature_f: numberOrNull(temperatures[index] ?? null),
     sort_order: index,
   })).filter((step) => step.description || step.note || step.duration_minutes !== null || step.temperature_f !== null);
 
   const coolingNames = formData.getAll("cooling_name").map(String);
   const coolingDurations = formData.getAll("cooling_duration");
+  const coolingDurationUnits = formData.getAll("cooling_duration_unit").map(String);
   const coolingTemperatures = formData.getAll("cooling_temperature");
   coolingNames.forEach((name, index) => processSteps.push({
     bake_id: bakeId,
     step_type: "resting",
     description: name,
     note: null,
-    duration_minutes: numberOrNull(coolingDurations[index] ?? null),
+    duration_minutes: durationMinutes(coolingDurations[index] ?? null, coolingDurationUnits[index]),
     temperature_f: numberOrNull(coolingTemperatures[index] ?? null),
     sort_order: 1000 + index,
   }));
 
   const bakeTemps = formData.getAll("bake_temperature");
   const bakeDurations = formData.getAll("bake_duration");
+  const bakeDurationUnits = formData.getAll("bake_duration_unit").map(String);
   const bakeDescriptions = formData.getAll("bake_description").map(String);
   const bakeLids = formData.getAll("bake_lid").map(String);
-  const bakingStages = bakeDurations.map((duration, index) => ({ bake_id: bakeId, temperature_f: numberOrNull(bakeTemps[index] ?? null), duration_minutes: numberOrNull(duration), lid_on: bakeLids[index] === "on", description: bakeDescriptions[index]?.trim() || null, sort_order: index })).filter((stage) => stage.duration_minutes !== null || stage.temperature_f !== null || stage.description);
+  const bakingStages = bakeDurations.map((duration, index) => ({
+    bake_id: bakeId,
+    temperature_f: numberOrNull(bakeTemps[index] ?? null),
+    duration_minutes: durationMinutes(duration, bakeDurationUnits[index]),
+    lid_on: bakeLids[index] === "on",
+    description: bakeDescriptions[index]?.trim() || null,
+    sort_order: index,
+  })).filter((stage) => stage.duration_minutes !== null || stage.temperature_f !== null || stage.description);
 
   const { error: processDeleteError } = await supabase.from("process_steps").delete().eq("bake_id", bakeId);
   if (processDeleteError) return { ok: false, error: processDeleteError.message };
