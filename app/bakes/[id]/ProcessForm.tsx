@@ -23,6 +23,20 @@ const coolingNames = ["Cooling in Dutch oven", "Cooling on rack"];
 
 function preventWheelChange(event: WheelEvent<HTMLInputElement>) { event.currentTarget.blur(); }
 
+function DurationField({ name, unitName, initialMinutes }: { name: string; unitName: string; initialMinutes: number | null }) {
+  return (
+    <label className="text-sm font-medium">Duration
+      <div className="mt-2 grid grid-cols-[1fr_7rem] gap-2">
+        <input name={name} type="number" min="0" step="0.01" inputMode="decimal" defaultValue={initialMinutes ?? ""} onWheel={preventWheelChange} className="min-h-12 w-full rounded-xl border px-3" />
+        <select name={unitName} defaultValue="minutes" className="min-h-12 w-full rounded-xl border bg-white px-2 text-sm">
+          <option value="minutes">Minutes</option>
+          <option value="hours">Hours</option>
+        </select>
+      </div>
+    </label>
+  );
+}
+
 function StepNote({ initialValue, stepNumber }: { initialValue: string; stepNumber: number }) {
   const [value, setValue] = useState(initialValue);
   const detailsRef = useRef<HTMLDetailsElement>(null);
@@ -67,31 +81,67 @@ export default function ProcessForm({ bakeId, initialSteps, initialBaking, initi
   async function saveNow() {
     if (!formRef.current) return;
     if (timerRef.current) clearTimeout(timerRef.current);
-    setSaveState("saving"); setSaveError("");
+    setSaveState("saving");
+    setSaveError("");
     const result = await saveProcess(bakeId, new FormData(formRef.current));
-    if (result.ok) setSaveState("saved"); else { setSaveState("error"); setSaveError(result.error ?? "Could not save."); }
+    if (result.ok) setSaveState("saved");
+    else { setSaveState("error"); setSaveError(result.error ?? "Could not save."); }
   }
-  function scheduleSave() { setSaveState("unsaved"); if (timerRef.current) clearTimeout(timerRef.current); timerRef.current = setTimeout(saveNow, 900); }
-  useEffect(() => { if (firstRender.current) { firstRender.current = false; return; } scheduleSave(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [steps, baking]);
+
+  function scheduleSave() {
+    setSaveState("unsaved");
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(saveNow, 900);
+  }
+
+  useEffect(() => {
+    if (firstRender.current) { firstRender.current = false; return; }
+    scheduleSave();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [steps, baking]);
+
   useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
-  function handleChange(event: FormEvent<HTMLFormElement>) { const target = event.target as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement; if (target.name) scheduleSave(); }
+
+  function handleChange(event: FormEvent<HTMLFormElement>) {
+    const target = event.target as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+    if (target.name) scheduleSave();
+  }
 
   function addStep() { setSteps((current) => [...current, { step_type: "other", description: "", note: "", duration_minutes: null, temperature_f: null }]); }
   function deleteStep(index: number) { setSteps((current) => current.filter((_, itemIndex) => itemIndex !== index)); }
-  function moveStep(from: number, to: number) { if (to < 0 || to >= steps.length || from === to) return; setSteps((current) => { const next = [...current]; const [moved] = next.splice(from, 1); next.splice(to, 0, moved); return next; }); }
+  function moveStep(from: number, to: number) {
+    if (to < 0 || to >= steps.length || from === to) return;
+    setSteps((current) => { const next = [...current]; const [moved] = next.splice(from, 1); next.splice(to, 0, moved); return next; });
+  }
   function dropStep(event: DragEvent<HTMLDivElement>, index: number) { event.preventDefault(); if (draggedIndex !== null) moveStep(draggedIndex, index); setDraggedIndex(null); }
 
   function beginTouchDrag(event: ReactPointerEvent<HTMLSpanElement>, index: number) {
     if (event.pointerType === "mouse") return;
-    event.preventDefault(); touchFromRef.current = index; touchOverRef.current = index; setTouchTargetIndex(index); event.currentTarget.setPointerCapture(event.pointerId);
+    event.preventDefault();
+    touchFromRef.current = index;
+    touchOverRef.current = index;
+    setTouchTargetIndex(index);
+    event.currentTarget.setPointerCapture(event.pointerId);
   }
   function continueTouchDrag(event: ReactPointerEvent<HTMLSpanElement>) {
     if (event.pointerType === "mouse" || touchFromRef.current === null) return;
-    event.preventDefault(); const element = document.elementFromPoint(event.clientX, event.clientY); const stepCard = element?.closest<HTMLElement>("[data-step-index]"); if (!stepCard) return; const index = Number(stepCard.dataset.stepIndex); if (Number.isInteger(index)) { touchOverRef.current = index; setTouchTargetIndex(index); }
+    event.preventDefault();
+    const element = document.elementFromPoint(event.clientX, event.clientY);
+    const stepCard = element?.closest<HTMLElement>("[data-step-index]");
+    if (!stepCard) return;
+    const index = Number(stepCard.dataset.stepIndex);
+    if (Number.isInteger(index)) { touchOverRef.current = index; setTouchTargetIndex(index); }
   }
   function endTouchDrag(event: ReactPointerEvent<HTMLSpanElement>) {
     if (event.pointerType === "mouse" || touchFromRef.current === null) return;
-    event.preventDefault(); const from = touchFromRef.current; const to = touchOverRef.current ?? from; touchFromRef.current = null; touchOverRef.current = null; setTouchTargetIndex(null); if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); moveStep(from, to);
+    event.preventDefault();
+    const from = touchFromRef.current;
+    const to = touchOverRef.current ?? from;
+    touchFromRef.current = null;
+    touchOverRef.current = null;
+    setTouchTargetIndex(null);
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+    moveStep(from, to);
   }
 
   function addBakingStage() { setBaking((current) => [...current, { temperature_f: 450, duration_minutes: null, lid_on: false, description: "" }]); }
@@ -112,9 +162,12 @@ export default function ProcessForm({ bakeId, initialSteps, initialBaking, initi
           {steps.map((step, index) => <div key={index} data-step-index={index} draggable onDragStart={() => setDraggedIndex(index)} onDragOver={(event) => event.preventDefault()} onDrop={(event) => dropStep(event, index)} className={`rounded-2xl bg-stone-50 p-4 transition ${touchTargetIndex === index ? "ring-2 ring-stone-400" : ""}`}>
             <div className="mb-3 flex items-center justify-between gap-2">
               <span onPointerDown={(event) => beginTouchDrag(event, index)} onPointerMove={continueTouchDrag} onPointerUp={endTouchDrag} onPointerCancel={endTouchDrag} className="cursor-grab select-none touch-none text-sm font-semibold text-stone-500">☰ Step {index + 1}</span>
-              <div className="flex gap-2"><StepNote initialValue={step.note ?? ""} stepNumber={index + 1} /><button type="button" onClick={() => moveStep(index, index - 1)} disabled={index === 0} className="min-h-9 min-w-10 rounded-lg border bg-white disabled:opacity-30">↑</button><button type="button" onClick={() => moveStep(index, index + 1)} disabled={index === steps.length - 1} className="min-h-9 min-w-10 rounded-lg border bg-white disabled:opacity-30">↓</button><button type="button" onClick={() => deleteStep(index)} className="flex h-9 w-9 items-center justify-center rounded-full border bg-white">−</button></div>
+              <div className="flex gap-2"><StepNote initialValue={step.note ?? ""} stepNumber={index + 1} /><button type="button" onClick={() => moveStep(index, index - 1)} disabled={index === 0} className="min-h-9 min-w-10 rounded-lg border bg-white disabled:opacity-30">↑</button><button type="button" onClick={() => moveStep(index, index + 1)} disabled={index === steps.length - 1} className="min-h-9 min-w-10 rounded-lg border bg-white disabled:opacity-30">↓</button><button type="button" onClick={() => deleteStep(index)} title="Delete step" aria-label={`Delete step ${index + 1}`} className="flex h-9 w-9 items-center justify-center rounded-full border bg-white">−</button></div>
             </div>
-            <div className="grid grid-cols-2 gap-3"><label className="text-sm font-medium">Step<select name="step_type" defaultValue={step.step_type} className="mt-2 min-h-12 w-full rounded-xl border bg-white px-3"><option value="mixing">Mixing</option><option value="kneading">Kneading</option><option value="proofing">Proofing</option><option value="shaping">Shaping</option><option value="resting">Resting</option><option value="other">Other</option></select></label><label className="text-sm font-medium">Minutes<input name="step_duration" type="number" min="0" defaultValue={step.duration_minutes ?? ""} onWheel={preventWheelChange} className="mt-2 min-h-12 w-full rounded-xl border px-3" /></label></div>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="text-sm font-medium">Step<select name="step_type" defaultValue={step.step_type} className="mt-2 min-h-12 w-full rounded-xl border bg-white px-3"><option value="mixing">Mixing</option><option value="kneading">Kneading</option><option value="proofing">Proofing</option><option value="shaping">Shaping</option><option value="resting">Resting</option><option value="other">Other</option></select></label>
+              <DurationField name="step_duration" unitName="step_duration_unit" initialMinutes={step.duration_minutes} />
+            </div>
             <label className="mt-3 block text-sm font-medium">What did you do?<input name="step_description" defaultValue={step.description ?? ""} className="mt-2 min-h-12 w-full rounded-xl border px-3" /></label>
             <label className="mt-3 block text-sm font-medium">Temperature °F <span className="font-normal text-stone-400">(when useful)</span><input name="step_temperature" type="number" step="0.1" defaultValue={step.temperature_f ?? ""} onWheel={preventWheelChange} className="mt-2 min-h-12 w-full rounded-xl border px-3" /></label>
           </div>)}
@@ -127,7 +180,14 @@ export default function ProcessForm({ bakeId, initialSteps, initialBaking, initi
     <section className="rounded-3xl border border-stone-200 bg-white shadow-sm">
       {sectionHeader("Baking", openSection === "baking" ? "Record each oven stage." : `${baking.length} baking stages`, "baking")}
       <div className={openSection === "baking" ? "border-t border-stone-100 p-5" : "hidden"}>
-        <div className="space-y-4">{baking.map((stage, index) => <div key={index} className="rounded-2xl bg-stone-50 p-4"><div className="flex justify-end"><button type="button" onClick={() => deleteBakingStage(index)} className="flex h-9 w-9 items-center justify-center rounded-full border bg-white">−</button></div><div className="grid grid-cols-2 gap-3"><label className="text-sm font-medium">Oven °F<input name="bake_temperature" type="number" defaultValue={stage.temperature_f ?? ""} onWheel={preventWheelChange} className="mt-2 min-h-12 w-full rounded-xl border px-3" /></label><label className="text-sm font-medium">Minutes<input name="bake_duration" type="number" defaultValue={stage.duration_minutes ?? ""} onWheel={preventWheelChange} className="mt-2 min-h-12 w-full rounded-xl border px-3" /></label></div><div className="mt-3 grid grid-cols-[9rem_1fr] gap-3"><label className="text-sm font-medium">Lid<select name="bake_lid" defaultValue={stage.lid_on ? "on" : "off"} className="mt-2 min-h-12 w-full rounded-xl border bg-white px-3"><option value="on">On</option><option value="off">Off</option></select></label><label className="text-sm font-medium">Note<input name="bake_description" defaultValue={stage.description ?? ""} className="mt-2 min-h-12 w-full rounded-xl border px-3" /></label></div></div>)}</div>
+        <div className="space-y-4">{baking.map((stage, index) => <div key={index} className="rounded-2xl bg-stone-50 p-4">
+          <div className="flex justify-end"><button type="button" onClick={() => deleteBakingStage(index)} className="flex h-9 w-9 items-center justify-center rounded-full border bg-white">−</button></div>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="text-sm font-medium">Oven °F<input name="bake_temperature" type="number" defaultValue={stage.temperature_f ?? ""} onWheel={preventWheelChange} className="mt-2 min-h-12 w-full rounded-xl border px-3" /></label>
+            <DurationField name="bake_duration" unitName="bake_duration_unit" initialMinutes={stage.duration_minutes} />
+          </div>
+          <div className="mt-3 grid grid-cols-[9rem_1fr] gap-3"><label className="text-sm font-medium">Lid<select name="bake_lid" defaultValue={stage.lid_on ? "on" : "off"} className="mt-2 min-h-12 w-full rounded-xl border bg-white px-3"><option value="on">On</option><option value="off">Off</option></select></label><label className="text-sm font-medium">Note<input name="bake_description" defaultValue={stage.description ?? ""} className="mt-2 min-h-12 w-full rounded-xl border px-3" /></label></div>
+        </div>)}</div>
         <button type="button" onClick={addBakingStage} className="mt-4 min-h-12 w-full rounded-xl border border-dashed font-semibold">+ Add baking stage</button>
         <button type="button" onClick={() => setOpenSection("cooling")} className="mt-4 min-h-12 w-full rounded-xl bg-stone-900 font-semibold text-white">Move on to Cooling →</button>
       </div>
@@ -136,7 +196,14 @@ export default function ProcessForm({ bakeId, initialSteps, initialBaking, initi
     <section className="rounded-3xl border border-stone-200 bg-white shadow-sm">
       {sectionHeader("Cooling", openSection === "cooling" ? "Record cooling after the loaf leaves the oven." : "Cooling details", "cooling")}
       <div className={openSection === "cooling" ? "border-t border-stone-100 p-5" : "hidden"}>
-        <div className="space-y-4">{cooling.map((step) => <div key={step.description} className="rounded-2xl bg-stone-50 p-4"><input type="hidden" name="cooling_name" value={step.description ?? ""} /><h3 className="font-semibold">{step.description}</h3><div className="mt-3 grid grid-cols-2 gap-3"><label className="text-sm font-medium">Minutes<input name="cooling_duration" type="number" defaultValue={step.duration_minutes ?? ""} onWheel={preventWheelChange} className="mt-2 min-h-12 w-full rounded-xl border px-3" /></label><label className="text-sm font-medium">Temperature °F<input name="cooling_temperature" type="number" defaultValue={step.temperature_f ?? ""} onWheel={preventWheelChange} className="mt-2 min-h-12 w-full rounded-xl border px-3" /></label></div></div>)}</div>
+        <div className="space-y-4">{cooling.map((step) => <div key={step.description} className="rounded-2xl bg-stone-50 p-4">
+          <input type="hidden" name="cooling_name" value={step.description ?? ""} />
+          <h3 className="font-semibold">{step.description}</h3>
+          <div className="mt-3 grid grid-cols-2 gap-3">
+            <DurationField name="cooling_duration" unitName="cooling_duration_unit" initialMinutes={step.duration_minutes} />
+            <label className="text-sm font-medium">Temperature °F<input name="cooling_temperature" type="number" defaultValue={step.temperature_f ?? ""} onWheel={preventWheelChange} className="mt-2 min-h-12 w-full rounded-xl border px-3" /></label>
+          </div>
+        </div>)}</div>
         <p className="mt-4 text-sm text-stone-500">When you're ready to evaluate the loaf, scroll to Evaluation below. Process and Baking stay collapsed unless you reopen them.</p>
       </div>
     </section>
