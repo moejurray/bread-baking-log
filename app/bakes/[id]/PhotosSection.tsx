@@ -48,7 +48,8 @@ export default function PhotosSection({ bakeId, userId, initialPhotos }: { bakeI
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
   const [status, setStatus] = useState<Status>("idle");
   const [message, setMessage] = useState("");
-  const fileRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
+  const libraryRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -96,10 +97,11 @@ export default function PhotosSection({ bakeId, userId, initialPhotos }: { bakeI
     }
   }
 
-  async function handleFiles(files: FileList | null) {
+  async function handleFiles(files: FileList | null, source: "camera" | "library") {
     if (!files?.length) return;
     for (const file of Array.from(files)) await uploadPhoto(file);
-    if (fileRef.current) fileRef.current.value = "";
+    if (source === "camera" && cameraRef.current) cameraRef.current.value = "";
+    if (source === "library" && libraryRef.current) libraryRef.current.value = "";
   }
 
   async function updateCaption(photoId: string, caption: string) {
@@ -130,11 +132,17 @@ export default function PhotosSection({ bakeId, userId, initialPhotos }: { bakeI
 
       {message ? <p className={`mt-3 rounded-xl px-3 py-2 text-sm ${status === "error" ? "bg-red-50 text-red-700" : "bg-stone-50 text-stone-600"}`}>{message}</p> : null}
 
-      <label className="mt-4 flex min-h-12 cursor-pointer items-center justify-center rounded-xl border border-dashed border-stone-400 bg-stone-50 px-4 py-3 font-semibold text-stone-700">
-        + Add photo
-        <input ref={fileRef} type="file" accept="image/*" multiple onChange={(event) => handleFiles(event.target.files)} className="sr-only" />
-      </label>
-      <p className="mt-2 text-xs text-stone-400">Tap a thumbnail to enlarge it. Photo time comes from camera metadata when available.</p>
+      <div className="mt-4 grid grid-cols-2 gap-3">
+        <label className="flex min-h-12 cursor-pointer items-center justify-center rounded-xl bg-stone-900 px-4 py-3 text-sm font-semibold text-white">
+          Take photo
+          <input ref={cameraRef} type="file" accept="image/*" capture="environment" onChange={(event) => handleFiles(event.target.files, "camera")} className="sr-only" />
+        </label>
+        <label className="flex min-h-12 cursor-pointer items-center justify-center rounded-xl border border-stone-300 bg-white px-4 py-3 text-sm font-semibold text-stone-700">
+          Choose photo
+          <input ref={libraryRef} type="file" accept="image/*" multiple onChange={(event) => handleFiles(event.target.files, "library")} className="sr-only" />
+        </label>
+      </div>
+      <p className="mt-2 text-xs text-stone-400">Take photo opens the phone camera when supported. Choose photo opens the photo library. Tap a thumbnail to enlarge it.</p>
 
       {photos.length > 0 ? (
         <div className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-3">
