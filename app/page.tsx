@@ -86,12 +86,15 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
                       {bake.experiment_name ? <p className="mt-1 text-sm font-medium text-stone-700">{bake.experiment_name}</p> : null}
                       <p className="mt-1 text-sm text-stone-500">{new Date(`${bake.bake_date}T12:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</p>
                     </div>
-                    <div className="flex shrink-0 items-start gap-2">
-                      {thumbnail ? <img src={thumbnail.signedUrl} alt={thumbnail.caption || "Finished bread loaf thumbnail"} className="h-16 w-16 rounded-xl border border-stone-200 object-cover shadow-sm" /> : null}
-                      <div className="rounded-xl bg-stone-100 px-3 py-2 text-right"><div className="text-lg font-semibold text-stone-900">{math.hydration.toFixed(1)}%</div><div className="text-xs text-stone-500">hydration</div></div>
-                    </div>
+                    <div className="shrink-0 rounded-xl bg-stone-100 px-3 py-2 text-right"><div className="text-lg font-semibold text-stone-900">{math.hydration.toFixed(1)}%</div><div className="text-xs text-stone-500">hydration</div></div>
                   </div>
-                  <p className="mt-4 text-sm leading-6 text-stone-600">{math.flours.map((flour) => `${flour.name} ${Number(flour.grams)}g`).join(" + ")}</p><p className="mt-1 text-xs text-stone-400">{math.totalFlour}g total flour · Open bake →</p>
+                  <div className={`mt-4 ${thumbnail ? "grid grid-cols-[minmax(0,1fr)_7rem] items-end gap-4" : ""}`}>
+                    <div className="min-w-0">
+                      <p className="text-sm leading-6 text-stone-600">{math.flours.map((flour) => `${flour.name} ${Number(flour.grams)}g`).join(" + ")}</p>
+                      <p className="mt-1 text-xs text-stone-400">{math.totalFlour}g total flour · Open bake →</p>
+                    </div>
+                    {thumbnail ? <img src={thumbnail.signedUrl} alt={thumbnail.caption || "Finished bread loaf thumbnail"} className="h-28 w-28 rounded-2xl border border-stone-200 object-cover shadow-sm" /> : null}
+                  </div>
                 </Link>
                 <div className="mt-4 flex gap-3 border-t border-stone-100 pt-4">
                   <form action={cloneBake.bind(null, bake.id)} className="flex-[2]">
