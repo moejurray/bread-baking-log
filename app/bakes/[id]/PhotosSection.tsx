@@ -9,6 +9,7 @@ type Photo = {
   caption: string | null;
   created_at: string;
   taken_at: string | null;
+  is_thumbnail: boolean;
   signed_url: string;
 };
 
@@ -78,8 +79,8 @@ export default function PhotosSection({ bakeId, userId, initialPhotos }: { bakeI
 
     const { data: row, error: insertError } = await supabase
       .from("bake_photos")
-      .insert({ bake_id: bakeId, user_id: userId, storage_path: storagePath, taken_at: takenAt })
-      .select("id, storage_path, caption, created_at, taken_at")
+      .insert({ bake_id: bakeId, user_id: userId, storage_path: storagePath, taken_at: takenAt, is_thumbnail: false })
+      .select("id, storage_path, caption, created_at, taken_at, is_thumbnail")
       .single();
 
     if (insertError || !row) {
@@ -111,6 +112,16 @@ export default function PhotosSection({ bakeId, userId, initialPhotos }: { bakeI
     if (error) { setStatus("error"); setMessage(error.message); } else { setStatus("saved"); setMessage("Caption saved."); }
   }
 
+  async function useAsThumbnail(photoId: string) {
+    setStatus("saving"); setMessage("");
+    const { error: clearError } = await supabase.from("bake_photos").update({ is_thumbnail: false }).eq("bake_id", bakeId).eq("is_thumbnail", true);
+    if (clearError) { setStatus("error"); setMessage(clearError.message); return; }
+    const { error: setError } = await supabase.from("bake_photos").update({ is_thumbnail: true }).eq("id", photoId).eq("bake_id", bakeId);
+    if (setError) { setStatus("error"); setMessage(setError.message); return; }
+    setPhotos((current) => current.map((photo) => ({ ...photo, is_thumbnail: photo.id === photoId })));
+    setStatus("saved"); setMessage("Home-page thumbnail updated.");
+  }
+
   async function deletePhoto(photo: Photo) {
     if (!window.confirm("Delete this photo?")) return;
     setStatus("deleting"); setMessage("");
@@ -120,7 +131,7 @@ export default function PhotosSection({ bakeId, userId, initialPhotos }: { bakeI
     if (rowError) { setStatus("error"); setMessage(rowError.message); return; }
     if (selectedPhoto?.id === photo.id) setSelectedPhoto(null);
     setPhotos((current) => current.filter((item) => item.id !== photo.id));
-    setStatus("saved"); setMessage("Photo deleted.");
+    setStatus("saved"); setMessage(photo.is_thumbnail ? "Photo deleted. The newest remaining photo will be used until you choose another thumbnail." : "Photo deleted.");
   }
 
   return (
@@ -148,13 +159,15 @@ export default function PhotosSection({ bakeId, userId, initialPhotos }: { bakeI
         <div className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-3">
           {photos.map((photo) => {
             const displayTime = photo.taken_at ?? photo.created_at;
-            return <div key={photo.id} className="overflow-hidden rounded-2xl border border-stone-200 bg-stone-50">
+            return <div key={photo.id} className={`overflow-hidden rounded-2xl border bg-stone-50 ${photo.is_thumbnail ? "border-stone-800 ring-2 ring-stone-200" : "border-stone-200"}`}>
               <button type="button" onClick={() => setSelectedPhoto(photo)} className="relative block w-full cursor-zoom-in text-left" aria-label="Open larger photo">
                 <img src={photo.signed_url} alt={photo.caption || "Bread bake photo"} className="aspect-square w-full object-cover" />
                 <span className="absolute bottom-2 left-2 rounded-md bg-black/70 px-2 py-1 text-[10px] font-medium text-white shadow-sm">{formatTimestamp(displayTime)}</span>
+                {photo.is_thumbnail ? <span className="absolute right-2 top-2 rounded-md bg-white/95 px-2 py-1 text-[10px] font-semibold text-stone-800 shadow-sm">Thumbnail</span> : null}
               </button>
               <div className="p-3">
                 <input defaultValue={photo.caption ?? ""} placeholder="Caption" onBlur={(event) => updateCaption(photo.id, event.target.value)} className="min-h-10 w-full rounded-lg border border-stone-300 bg-white px-2 text-sm" />
+                <button type="button" onClick={() => useAsThumbnail(photo.id)} disabled={photo.is_thumbnail} className={`mt-2 w-full rounded-lg px-3 py-2 text-xs font-semibold ${photo.is_thumbnail ? "bg-stone-900 text-white" : "border border-stone-300 bg-white text-stone-700"}`}>{photo.is_thumbnail ? "✓ Home thumbnail" : "Use as thumbnail"}</button>
                 <button type="button" onClick={() => deletePhoto(photo)} className="mt-2 w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-xs font-semibold text-stone-600">Delete photo</button>
               </div>
             </div>;
