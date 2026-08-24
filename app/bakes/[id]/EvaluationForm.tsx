@@ -53,8 +53,8 @@ export default function EvaluationForm({ bakeId, initial }: { bakeId: string; in
   const note = (k: string) => criterionNotes[k] ?? ""; const savedNotes = Object.entries(criterionNotes).filter(([, v]) => v.trim());
 
   return <section className="mt-6 rounded-3xl border border-stone-200 bg-white shadow-sm">
-    <div className="sticky top-3 z-20 flex justify-end pointer-events-none px-5 pt-3"><div className={`rounded-full border bg-white/95 px-3 py-1.5 text-xs font-semibold shadow-sm ${status === "error" ? "border-red-200 text-red-700" : "border-stone-200 text-stone-600"}`}>{status === "pending" ? "Changes pending…" : status === "saving" ? "Saving…" : status === "saved" ? "✓ Saved" : status === "error" ? "Save failed" : ""}</div></div>
-    <button type="button" onClick={() => setOpen((value) => !value)} className="-mt-7 flex w-full items-center justify-between p-5 pr-5 text-left" aria-expanded={open}>
+    {status !== "idle" ? <div className="sticky top-3 z-20 flex justify-end pointer-events-none px-5 pt-3"><div className={`rounded-full border bg-white/95 px-3 py-1.5 text-xs font-semibold shadow-sm ${status === "error" ? "border-red-200 text-red-700" : "border-stone-200 text-stone-600"}`}>{status === "pending" ? "Changes pending…" : status === "saving" ? "Saving…" : status === "saved" ? "✓ Saved" : "Save failed"}</div></div> : null}
+    <button type="button" onClick={() => setOpen((value) => !value)} className={`${status !== "idle" ? "-mt-7" : ""} flex w-full items-center justify-between p-5 pr-5 text-left`} aria-expanded={open}>
       <div className="pr-20"><h2 className="text-lg font-semibold">Evaluation</h2><p className="mt-1 text-sm text-stone-500">How did this loaf actually turn out?</p></div>
       <span className="text-xl text-stone-400">{open ? "−" : "+"}</span>
     </button>
