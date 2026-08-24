@@ -6,6 +6,7 @@ import HelpButton from "@/app/HelpButton";
 import ProcessForm from "./ProcessForm";
 import EvaluationForm from "./EvaluationForm";
 import PhotosSection from "./PhotosSection";
+import ShareBake from "./ShareBake";
 import FormulaEditor from "./FormulaEditor";
 import ExperimentNameEditor from "./ExperimentNameEditor";
 
@@ -14,6 +15,35 @@ type ProcessStep = { step_type: string; description: string | null; note: string
 type BakingStage = { temperature_f: number | null; duration_minutes: number | null; lid_on: boolean | null; description: string | null; sort_order: number };
 type Evaluation = { crumb_openness: string | null; crumb_evenness: number | null; moisture: string | null; chew: string | null; oven_spring: number | null; structure_rating: number | null; height_rise: number | null; top_crust_color: number | null; bottom_crust_color: number | null; crispness: number | null; flavor: number | null; overall_rating: number | null; would_bake_again: string | null; notes: string | null; criterion_notes: Record<string, string> | null };
 type PhotoRow = { id: string; storage_path: string; caption: string | null; created_at: string; taken_at: string | null; is_thumbnail: boolean };
+
+function durationLabel(minutes: number | null) {
+  if (minutes === null) return "";
+  if (minutes >= 60 && minutes % 30 === 0) return `${Number((minutes / 60).toFixed(1))} hr`;
+  return `${minutes} min`;
+}
+
+function processSummary(steps: ProcessStep[]) {
+  const labels = steps.map((step) => step.step_type.charAt(0).toUpperCase() + step.step_type.slice(1));
+  if (labels.length <= 4) return labels.join(" → ");
+  return `${labels.slice(0, 4).join(" → ")} +${labels.length - 4} more`;
+}
+
+function bakingSummary(stages: BakingStage[]) {
+  return stages.map((stage) => {
+    const parts = [stage.temperature_f !== null ? `${stage.temperature_f}°F` : "", durationLabel(stage.duration_minutes), stage.lid_on === null ? "" : stage.lid_on ? "lid on" : "lid off"].filter(Boolean);
+    return parts.join(" · ");
+  }).filter(Boolean).join(" + ");
+}
+
+function evaluationSummary(evaluation: Evaluation | null) {
+  if (!evaluation) return "";
+  const parts = [
+    evaluation.overall_rating !== null ? `Overall ${evaluation.overall_rating}/5` : "",
+    evaluation.flavor !== null ? `Flavor ${evaluation.flavor}/5` : "",
+    evaluation.would_bake_again ? `Bake again: ${evaluation.would_bake_again}` : "",
+  ].filter(Boolean);
+  return parts.join(" · ");
+}
 
 export default async function BakePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ editFormula?: string }> }) {
   const { id } = await params;
@@ -48,7 +78,8 @@ export default async function BakePage({ params, searchParams }: { params: Promi
   );
 
   const ingredients = ((bake.ingredients ?? []) as Ingredient[]).sort((a, b) => a.sort_order - b.sort_order);
-  const totalFlour = ingredients.filter((item) => item.ingredient_type === "flour").reduce((sum, item) => sum + Number(item.grams), 0);
+  const flours = ingredients.filter((item) => item.ingredient_type === "flour");
+  const totalFlour = flours.reduce((sum, item) => sum + Number(item.grams), 0);
   const water = ingredients.filter((item) => item.ingredient_type === "water").reduce((sum, item) => sum + Number(item.grams), 0);
   const hydration = totalFlour ? (water / totalFlour) * 100 : 0;
   const allSteps = ((bake.process_steps ?? []) as ProcessStep[]).sort((a, b) => a.sort_order - b.sort_order);
@@ -56,6 +87,8 @@ export default async function BakePage({ params, searchParams }: { params: Promi
   const cooling = allSteps.filter((step) => step.sort_order >= 1000);
   const baking = ((bake.baking_stages ?? []) as BakingStage[]).sort((a, b) => a.sort_order - b.sort_order);
   const evaluation = Array.isArray(bake.evaluations) ? (bake.evaluations[0] as Evaluation | undefined) ?? null : (bake.evaluations as Evaluation | null);
+  const usablePhotos = photos.filter((photo) => photo.signed_url);
+  const flourSummary = flours.map((flour) => `${flour.name} ${Number(flour.grams)}g`).join(" + ") || `${totalFlour}g flour`;
 
   return (
     <main className="mx-auto min-h-screen max-w-md px-5 pb-16 pt-8 sm:max-w-2xl">
@@ -78,7 +111,19 @@ export default async function BakePage({ params, searchParams }: { params: Promi
       <FormulaEditor bakeId={id} initialIngredients={ingredients} defaultOpen={editFormula === "1"} />
       <ProcessForm bakeId={id} initialSteps={steps} initialBaking={baking} initialCooling={cooling} />
       <EvaluationForm bakeId={id} initial={evaluation} />
-      <PhotosSection bakeId={id} userId={user.id} initialPhotos={photos.filter((photo) => photo.signed_url)} />
+      <PhotosSection bakeId={id} userId={user.id} initialPhotos={usablePhotos} />
+      <ShareBake
+        bakeName={bake.name}
+        experimentName={bake.experiment_name ?? null}
+        bakeDate={bake.bake_date}
+        hydration={hydration}
+        flourSummary={flourSummary}
+        processSummary={processSummary(steps)}
+        bakingSummary={bakingSummary(baking)}
+        evaluationSummary={evaluationSummary(evaluation)}
+        notes={evaluation?.notes ?? null}
+        photos={usablePhotos.map((photo) => ({ id: photo.id, signed_url: photo.signed_url, caption: photo.caption, is_thumbnail: photo.is_thumbnail }))}
+      />
 
       <section className="mt-6 rounded-3xl border border-stone-200 bg-white p-5 shadow-sm">
         <h2 className="text-lg font-semibold text-stone-900">Bake this again</h2>
