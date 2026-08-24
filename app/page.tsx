@@ -9,7 +9,7 @@ import HelpButton from "./HelpButton";
 
 type Ingredient = { ingredient_type: string; name: string; grams: number };
 type Bake = { id: string; name: string; experiment_name: string | null; bake_date: string; ingredients: Ingredient[] };
-type PhotoRow = { bake_id: string; storage_path: string; caption: string | null; taken_at: string | null; created_at: string };
+type PhotoRow = { bake_id: string; storage_path: string; caption: string | null; taken_at: string | null; created_at: string; is_thumbnail: boolean };
 
 function bakeMath(ingredients: Ingredient[]) {
   const flours = ingredients.filter((item) => item.ingredient_type === "flour");
@@ -41,16 +41,25 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
   if (bakeIds.length > 0) {
     const { data: photoData } = await supabase
       .from("bake_photos")
-      .select("bake_id, storage_path, caption, taken_at, created_at")
+      .select("bake_id, storage_path, caption, taken_at, created_at, is_thumbnail")
       .in("bake_id", bakeIds);
 
+    const chosenByBake = new Map<string, PhotoRow>();
     const latestByBake = new Map<string, PhotoRow>();
+
     for (const photo of (photoData ?? []) as PhotoRow[]) {
-      const current = latestByBake.get(photo.bake_id);
-      if (!current || photoTime(photo) > photoTime(current)) latestByBake.set(photo.bake_id, photo);
+      if (photo.is_thumbnail) chosenByBake.set(photo.bake_id, photo);
+      const currentLatest = latestByBake.get(photo.bake_id);
+      if (!currentLatest || photoTime(photo) > photoTime(currentLatest)) latestByBake.set(photo.bake_id, photo);
     }
 
-    await Promise.all(Array.from(latestByBake.entries()).map(async ([bakeId, photo]) => {
+    const displayByBake = new Map<string, PhotoRow>();
+    for (const bakeId of bakeIds) {
+      const photo = chosenByBake.get(bakeId) ?? latestByBake.get(bakeId);
+      if (photo) displayByBake.set(bakeId, photo);
+    }
+
+    await Promise.all(Array.from(displayByBake.entries()).map(async ([bakeId, photo]) => {
       const { data: signed } = await supabase.storage.from("bake-photos").createSignedUrl(photo.storage_path, 60 * 60);
       if (signed?.signedUrl) thumbnailByBake.set(bakeId, { signedUrl: signed.signedUrl, caption: photo.caption });
     }));
