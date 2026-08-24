@@ -75,17 +75,37 @@ export default function ProcessForm({ bakeId, initialSteps, initialBaking, initi
   const firstRender = useRef(true);
   const touchFromRef = useRef<number | null>(null);
   const touchOverRef = useRef<number | null>(null);
+  const saveAttemptRef = useRef(0);
 
   const cooling = coolingNames.map((name) => initialCooling.find((step) => step.description === name) ?? { step_type: "resting", description: name, note: null, duration_minutes: null, temperature_f: null });
 
   async function saveNow() {
     if (!formRef.current) return;
     if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = null;
+
+    const attempt = ++saveAttemptRef.current;
+    const data = new FormData(formRef.current);
     setSaveState("saving");
     setSaveError("");
-    const result = await saveProcess(bakeId, new FormData(formRef.current));
-    if (result.ok) setSaveState("saved");
-    else { setSaveState("error"); setSaveError(result.error ?? "Could not save."); }
+
+    try {
+      const result = await Promise.race([
+        saveProcess(bakeId, data),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Save timed out. Please try again.")), 15000)),
+      ]);
+
+      if (attempt !== saveAttemptRef.current) return;
+      if (result.ok) setSaveState("saved");
+      else {
+        setSaveState("error");
+        setSaveError(result.error ?? "Could not save.");
+      }
+    } catch (error) {
+      if (attempt !== saveAttemptRef.current) return;
+      setSaveState("error");
+      setSaveError(error instanceof Error ? error.message : "Could not save.");
+    }
   }
 
   function scheduleSave() {
