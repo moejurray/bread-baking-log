@@ -29,9 +29,7 @@ function Help({ text }: { text: string }) {
   }, []);
   return <details ref={detailsRef} className="relative inline-block align-middle">
     <summary className="ml-1 inline-flex h-5 w-5 cursor-pointer list-none items-center justify-center rounded-full border border-stone-300 bg-white text-[11px] font-bold text-stone-500">?</summary>
-    <div className="fixed left-4 right-4 top-1/2 z-50 -translate-y-1/2 rounded-xl border border-stone-200 bg-white p-4 text-sm font-normal leading-6 text-stone-600 shadow-xl sm:absolute sm:left-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-64 sm:translate-y-0 sm:p-3 sm:text-xs sm:leading-5">
-      {text}
-    </div>
+    <div className="fixed left-4 right-4 top-1/2 z-50 -translate-y-1/2 rounded-xl border border-stone-200 bg-white p-4 text-sm font-normal leading-6 text-stone-600 shadow-xl sm:absolute sm:left-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-64 sm:translate-y-0 sm:p-3 sm:text-xs sm:leading-5">{text}</div>
   </details>;
 }
 
@@ -47,16 +45,21 @@ export default function EvaluationForm({ bakeId, initial }: { bakeId: string; in
   const formRef = useRef<HTMLFormElement>(null); const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [status, setStatus] = useState<"idle" | "pending" | "saving" | "saved" | "error">("idle"); const [error, setError] = useState("");
   const [criterionNotes, setCriterionNotes] = useState<Record<string, string>>(initial?.criterion_notes ?? {});
+  const [open, setOpen] = useState(false);
   useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
   async function saveNow() { if (!formRef.current) return; if (timerRef.current) clearTimeout(timerRef.current); setStatus("saving"); const result = await saveEvaluation(bakeId, new FormData(formRef.current)); if (result.ok) { setStatus("saved"); setError(""); } else { setStatus("error"); setError(result.error ?? "Could not save evaluation."); } }
   function queueSave() { setStatus("pending"); if (timerRef.current) clearTimeout(timerRef.current); timerRef.current = setTimeout(saveNow, 900); }
   function changeNote(k: string, v: string) { setCriterionNotes((c) => ({ ...c, [k]: v })); queueSave(); }
   const note = (k: string) => criterionNotes[k] ?? ""; const savedNotes = Object.entries(criterionNotes).filter(([, v]) => v.trim());
 
-  return <section className="mt-6 rounded-3xl border border-stone-200 bg-white p-5 shadow-sm">
-    <div className="sticky top-3 z-20 flex justify-end pointer-events-none"><div className={`rounded-full border bg-white/95 px-3 py-1.5 text-xs font-semibold shadow-sm ${status === "error" ? "border-red-200 text-red-700" : "border-stone-200 text-stone-600"}`}>{status === "pending" ? "Changes pending…" : status === "saving" ? "Saving…" : status === "saved" ? "✓ Saved" : status === "error" ? "Save failed" : ""}</div></div>
-    <div className="-mt-7 pr-20"><h2 className="text-lg font-semibold">Evaluation</h2><p className="mt-1 text-sm text-stone-500">How did this loaf actually turn out?</p></div>{error ? <p className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
-    <form ref={formRef} onChange={queueSave} onInput={queueSave} className="mt-5 space-y-6">
+  return <section className="mt-6 rounded-3xl border border-stone-200 bg-white shadow-sm">
+    <div className="sticky top-3 z-20 flex justify-end pointer-events-none px-5 pt-3"><div className={`rounded-full border bg-white/95 px-3 py-1.5 text-xs font-semibold shadow-sm ${status === "error" ? "border-red-200 text-red-700" : "border-stone-200 text-stone-600"}`}>{status === "pending" ? "Changes pending…" : status === "saving" ? "Saving…" : status === "saved" ? "✓ Saved" : status === "error" ? "Save failed" : ""}</div></div>
+    <button type="button" onClick={() => setOpen((value) => !value)} className="-mt-7 flex w-full items-center justify-between p-5 pr-5 text-left" aria-expanded={open}>
+      <div className="pr-20"><h2 className="text-lg font-semibold">Evaluation</h2><p className="mt-1 text-sm text-stone-500">How did this loaf actually turn out?</p></div>
+      <span className="text-xl text-stone-400">{open ? "−" : "+"}</span>
+    </button>
+    {error ? <p className="mx-5 mb-3 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
+    <form ref={formRef} onChange={queueSave} onInput={queueSave} className={open ? "space-y-6 border-t border-stone-100 p-5" : "hidden"}>
       <div><h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-stone-500">Crumb</h3><div className="grid grid-cols-2 gap-3">
         <label className="text-sm font-medium">Openness<Tools criterion="crumb_openness" help="How open the crumb is overall, from a tight sandwich-bread crumb to large, airy holes." note={note("crumb_openness")} onNoteChanged={changeNote} /><select name="crumb_openness" defaultValue={initial?.crumb_openness ?? ""} className="mt-2 min-h-12 w-full rounded-xl border border-stone-300 bg-white px-3"><option value="">—</option><option>Tight</option><option>Medium</option><option>Open</option><option>Very open</option><option>Irregular</option></select></label>
         <Rating name="crumb_evenness" label="Evenness" value={initial?.crumb_evenness ?? null} help="How evenly the holes are distributed through the crumb." note={note("crumb_evenness")} onNoteChanged={changeNote} />
