@@ -47,6 +47,7 @@ export default function PhotosSection({ bakeId, userId, initialPhotos }: { bakeI
   const supabase = useMemo(() => createClient(), []);
   const [photos, setPhotos] = useState<Photo[]>(() => sortNewestFirst(initialPhotos));
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
+  const [isExpanded, setIsExpanded] = useState(true);
   const [status, setStatus] = useState<Status>("idle");
   const [message, setMessage] = useState("");
   const cameraRef = useRef<HTMLInputElement>(null);
@@ -137,43 +138,59 @@ export default function PhotosSection({ bakeId, userId, initialPhotos }: { bakeI
   return (
     <section className="mt-6 rounded-3xl border border-stone-200 bg-white p-5 shadow-sm">
       <div className="flex items-start justify-between gap-4">
-        <div><h2 className="text-lg font-semibold text-stone-900">Photos</h2><p className="mt-1 text-sm text-stone-500">Add loaf, crumb, or process photos.</p></div>
-        <span className="text-xs font-semibold text-stone-500" aria-live="polite">{status === "uploading" ? "Uploading…" : status === "saving" ? "Saving…" : status === "deleting" ? "Deleting…" : status === "error" ? "Error" : status === "saved" ? "✓ Saved" : ""}</span>
+        <button
+          type="button"
+          onClick={() => setIsExpanded((current) => !current)}
+          className="flex min-w-0 flex-1 items-start justify-between gap-4 text-left"
+          aria-expanded={isExpanded}
+          aria-controls={`photos-content-${bakeId}`}
+        >
+          <div>
+            <h2 className="text-lg font-semibold text-stone-900">Photos</h2>
+            <p className="mt-1 text-sm text-stone-500">Add loaf, crumb, or process photos.</p>
+          </div>
+          <span className="mt-1 shrink-0 text-lg leading-none text-stone-500" aria-hidden="true">{isExpanded ? "▴" : "▾"}</span>
+        </button>
+        <span className="shrink-0 text-xs font-semibold text-stone-500" aria-live="polite">{status === "uploading" ? "Uploading…" : status === "saving" ? "Saving…" : status === "deleting" ? "Deleting…" : status === "error" ? "Error" : status === "saved" ? "✓ Saved" : ""}</span>
       </div>
 
-      {message ? <p className={`mt-3 rounded-xl px-3 py-2 text-sm ${status === "error" ? "bg-red-50 text-red-700" : "bg-stone-50 text-stone-600"}`}>{message}</p> : null}
+      {isExpanded ? (
+        <div id={`photos-content-${bakeId}`}>
+          {message ? <p className={`mt-3 rounded-xl px-3 py-2 text-sm ${status === "error" ? "bg-red-50 text-red-700" : "bg-stone-50 text-stone-600"}`}>{message}</p> : null}
 
-      <div className="mt-4 grid grid-cols-2 gap-3">
-        <label className="flex min-h-12 cursor-pointer items-center justify-center rounded-xl bg-stone-900 px-4 py-3 text-sm font-semibold text-white">
-          Take photo
-          <input ref={cameraRef} type="file" accept="image/*" capture="environment" onChange={(event) => handleFiles(event.target.files, "camera")} className="sr-only" />
-        </label>
-        <label className="flex min-h-12 cursor-pointer items-center justify-center rounded-xl border border-stone-300 bg-white px-4 py-3 text-sm font-semibold text-stone-700">
-          Choose photo
-          <input ref={libraryRef} type="file" accept="image/*" multiple onChange={(event) => handleFiles(event.target.files, "library")} className="sr-only" />
-        </label>
-      </div>
-      <p className="mt-2 text-xs text-stone-400">Take photo opens the phone camera when supported. Choose photo opens the photo library. Tap a thumbnail to enlarge it.</p>
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <label className="flex min-h-12 cursor-pointer items-center justify-center rounded-xl bg-stone-900 px-4 py-3 text-sm font-semibold text-white">
+              Take photo
+              <input ref={cameraRef} type="file" accept="image/*" capture="environment" onChange={(event) => handleFiles(event.target.files, "camera")} className="sr-only" />
+            </label>
+            <label className="flex min-h-12 cursor-pointer items-center justify-center rounded-xl border border-stone-300 bg-white px-4 py-3 text-sm font-semibold text-stone-700">
+              Choose photo
+              <input ref={libraryRef} type="file" accept="image/*" multiple onChange={(event) => handleFiles(event.target.files, "library")} className="sr-only" />
+            </label>
+          </div>
+          <p className="mt-2 text-xs text-stone-400">Take photo opens the phone camera when supported. Choose photo opens the photo library. Tap a thumbnail to enlarge it.</p>
 
-      {photos.length > 0 ? (
-        <div className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-3">
-          {photos.map((photo) => {
-            const displayTime = photo.taken_at ?? photo.created_at;
-            return <div key={photo.id} className={`overflow-hidden rounded-2xl border bg-stone-50 ${photo.is_thumbnail ? "border-stone-800 ring-2 ring-stone-200" : "border-stone-200"}`}>
-              <button type="button" onClick={() => setSelectedPhoto(photo)} className="relative block w-full cursor-zoom-in text-left" aria-label="Open larger photo">
-                <img src={photo.signed_url} alt={photo.caption || "Bread bake photo"} className="aspect-square w-full object-cover" />
-                <span className="absolute bottom-2 left-2 rounded-md bg-black/70 px-2 py-1 text-[10px] font-medium text-white shadow-sm">{formatTimestamp(displayTime)}</span>
-                {photo.is_thumbnail ? <span className="absolute right-2 top-2 rounded-md bg-white/95 px-2 py-1 text-[10px] font-semibold text-stone-800 shadow-sm">Thumbnail</span> : null}
-              </button>
-              <div className="p-3">
-                <input defaultValue={photo.caption ?? ""} placeholder="Caption" onBlur={(event) => updateCaption(photo.id, event.target.value)} className="min-h-10 w-full rounded-lg border border-stone-300 bg-white px-2 text-sm" />
-                <button type="button" onClick={() => useAsThumbnail(photo.id)} disabled={photo.is_thumbnail} className={`mt-2 w-full rounded-lg px-3 py-2 text-xs font-semibold ${photo.is_thumbnail ? "bg-stone-900 text-white" : "border border-stone-300 bg-white text-stone-700"}`}>{photo.is_thumbnail ? "✓ Home thumbnail" : "Use as thumbnail"}</button>
-                <button type="button" onClick={() => deletePhoto(photo)} className="mt-2 w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-xs font-semibold text-stone-600">Delete photo</button>
-              </div>
-            </div>;
-          })}
+          {photos.length > 0 ? (
+            <div className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-3">
+              {photos.map((photo) => {
+                const displayTime = photo.taken_at ?? photo.created_at;
+                return <div key={photo.id} className={`overflow-hidden rounded-2xl border bg-stone-50 ${photo.is_thumbnail ? "border-stone-800 ring-2 ring-stone-200" : "border-stone-200"}`}>
+                  <button type="button" onClick={() => setSelectedPhoto(photo)} className="relative block w-full cursor-zoom-in text-left" aria-label="Open larger photo">
+                    <img src={photo.signed_url} alt={photo.caption || "Bread bake photo"} className="aspect-square w-full object-cover" />
+                    <span className="absolute bottom-2 left-2 rounded-md bg-black/70 px-2 py-1 text-[10px] font-medium text-white shadow-sm">{formatTimestamp(displayTime)}</span>
+                    {photo.is_thumbnail ? <span className="absolute right-2 top-2 rounded-md bg-white/95 px-2 py-1 text-[10px] font-semibold text-stone-800 shadow-sm">Thumbnail</span> : null}
+                  </button>
+                  <div className="p-3">
+                    <input defaultValue={photo.caption ?? ""} placeholder="Caption" onBlur={(event) => updateCaption(photo.id, event.target.value)} className="min-h-10 w-full rounded-lg border border-stone-300 bg-white px-2 text-sm" />
+                    <button type="button" onClick={() => useAsThumbnail(photo.id)} disabled={photo.is_thumbnail} className={`mt-2 w-full rounded-lg px-3 py-2 text-xs font-semibold ${photo.is_thumbnail ? "bg-stone-900 text-white" : "border border-stone-300 bg-white text-stone-700"}`}>{photo.is_thumbnail ? "✓ Home thumbnail" : "Use as thumbnail"}</button>
+                    <button type="button" onClick={() => deletePhoto(photo)} className="mt-2 w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-xs font-semibold text-stone-600">Delete photo</button>
+                  </div>
+                </div>;
+              })}
+            </div>
+          ) : <p className="mt-5 text-sm text-stone-400">No photos yet.</p>}
         </div>
-      ) : <p className="mt-5 text-sm text-stone-400">No photos yet.</p>}
+      ) : null}
 
       {selectedPhoto ? (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 p-4" onClick={() => setSelectedPhoto(null)} role="dialog" aria-modal="true" aria-label="Large photo viewer">
