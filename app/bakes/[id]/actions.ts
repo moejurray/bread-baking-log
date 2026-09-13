@@ -15,6 +15,14 @@ function durationMinutes(value: FormDataEntryValue | null, unit: string | undefi
   return Math.round(unit === "hours" ? parsed * 60 : parsed);
 }
 
+function bakingDescription(method: string | undefined, note: string | undefined) {
+  const cleanNote = note?.trim() || "";
+  if (method === "freeform" || method === "other") {
+    return `[[method:${method}]]${cleanNote}`;
+  }
+  return cleanNote || null;
+}
+
 export async function saveProcess(bakeId: string, formData: FormData) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -58,15 +66,18 @@ export async function saveProcess(bakeId: string, formData: FormData) {
   const bakeDurations = formData.getAll("bake_duration");
   const bakeDurationUnits = formData.getAll("bake_duration_unit").map(String);
   const bakeDescriptions = formData.getAll("bake_description").map(String);
-  const bakeLids = formData.getAll("bake_lid").map(String);
-  const bakingStages = bakeDurations.map((duration, index) => ({
-    bake_id: bakeId,
-    temperature_f: numberOrNull(bakeTemps[index] ?? null),
-    duration_minutes: durationMinutes(duration, bakeDurationUnits[index]),
-    lid_on: bakeLids[index] === "on",
-    description: bakeDescriptions[index]?.trim() || null,
-    sort_order: index,
-  })).filter((stage) => stage.duration_minutes !== null || stage.temperature_f !== null || stage.description);
+  const bakeMethods = formData.getAll("bake_method").map(String);
+  const bakingStages = bakeDurations.map((duration, index) => {
+    const method = bakeMethods[index];
+    return {
+      bake_id: bakeId,
+      temperature_f: numberOrNull(bakeTemps[index] ?? null),
+      duration_minutes: durationMinutes(duration, bakeDurationUnits[index]),
+      lid_on: method === "lid_on" ? true : method === "lid_off" ? false : null,
+      description: bakingDescription(method, bakeDescriptions[index]),
+      sort_order: index,
+    };
+  }).filter((stage) => stage.duration_minutes !== null || stage.temperature_f !== null || stage.description);
 
   const { error: processDeleteError } = await supabase.from("process_steps").delete().eq("bake_id", bakeId);
   if (processDeleteError) return { ok: false, error: processDeleteError.message };
