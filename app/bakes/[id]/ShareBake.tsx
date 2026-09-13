@@ -66,6 +66,23 @@ function drawCover(ctx: CanvasRenderingContext2D, image: HTMLImageElement, x: nu
   ctx.drawImage(image, sx, sy, sourceWidth, sourceHeight, x, y, width, height);
 }
 
+function drawRoundedCover(
+  ctx: CanvasRenderingContext2D,
+  image: HTMLImageElement,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number,
+) {
+  ctx.save();
+  ctx.beginPath();
+  ctx.roundRect(x, y, width, height, radius);
+  ctx.clip();
+  drawCover(ctx, image, x, y, width, height);
+  ctx.restore();
+}
+
 export default function ShareBake({ bakeName, experimentName, bakeDate, hydration, flourSummary, processSummary, bakingSummary, evaluationSummary, notes, photos }: Props) {
   const hero = photos.find((photo) => photo.is_thumbnail) ?? photos[0] ?? null;
   const otherPhotos = photos.filter((photo) => photo.id !== hero?.id);
@@ -99,89 +116,136 @@ export default function ShareBake({ bakeName, experimentName, bakeDate, hydratio
   async function createCardBlob() {
     if (!hero) throw new Error("Choose a home thumbnail before creating an Instagram card.");
     setStatus("Building card…");
+
     const canvas = document.createElement("canvas");
     canvas.width = 1080;
     canvas.height = 1350;
     const ctx = canvas.getContext("2d");
     if (!ctx) throw new Error("Your browser could not create the share card.");
 
+    const margin = 64;
+    const contentWidth = canvas.width - margin * 2;
+
     ctx.fillStyle = "#f7f4ee";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+    // Hero image: deliberately inset from every edge so Instagram cannot make
+    // the card feel clipped even when it previews the post tightly.
     const heroImage = await loadImage(hero.signed_url);
-    drawCover(ctx, heroImage, 0, 0, 1080, 650);
+    const heroY = 64;
+    const heroHeight = 470;
+    drawRoundedCover(ctx, heroImage, margin, heroY, contentWidth, heroHeight, 28);
 
-    ctx.fillStyle = "rgba(0,0,0,0.58)";
-    ctx.fillRect(0, 500, 1080, 150);
+    // Dark title band lives completely inside the hero image.
+    const bandY = heroY + heroHeight - 170;
+    ctx.save();
+    ctx.beginPath();
+    ctx.roundRect(margin, heroY, contentWidth, heroHeight, 28);
+    ctx.clip();
+    ctx.fillStyle = "rgba(20, 18, 16, 0.66)";
+    ctx.fillRect(margin, bandY, contentWidth, 170);
+    ctx.restore();
+
     ctx.fillStyle = "#ffffff";
-    ctx.font = "700 58px system-ui, -apple-system, sans-serif";
-    const titleLines = wrapText(ctx, bakeName, 900).slice(0, 2);
-    titleLines.forEach((line, index) => ctx.fillText(line, 64, 555 + index * 62));
-    if (experimentName) {
-      ctx.font = "400 30px system-ui, -apple-system, sans-serif";
-      ctx.fillText(experimentName, 66, 625);
-    }
+    ctx.font = "700 54px system-ui, -apple-system, sans-serif";
+    const titleLines = wrapText(ctx, bakeName, 760).slice(0, 2);
+    const titleStartY = titleLines.length > 1 ? bandY + 66 : bandY + 82;
+    titleLines.forEach((line, index) => ctx.fillText(line, margin + 34, titleStartY + index * 56));
 
-    ctx.fillStyle = "#1c1917";
-    ctx.font = "700 38px system-ui, -apple-system, sans-serif";
-    ctx.fillText("BAKE RECAP", 64, 730);
-    ctx.font = "400 26px system-ui, -apple-system, sans-serif";
-    ctx.fillStyle = "#78716c";
-    ctx.fillText(new Date(`${bakeDate}T12:00:00`).toLocaleDateString(), 64, 770);
-
-    const extraPhotos = selectedExtras.map((id) => photos.find((photo) => photo.id === id)).filter(Boolean) as SharePhoto[];
-    const textWidth = extraPhotos.length ? 610 : 940;
-    let y = 830;
-
-    const recapLines = [
-      `${hydration.toFixed(1)}% hydration · ${flourSummary}`,
-      processSummary ? `Process: ${processSummary}` : "",
-      bakingSummary ? `Bake: ${bakingSummary}` : "",
-      evaluationSummary ? `Result: ${evaluationSummary}` : "",
+    const metaParts = [
+      experimentName,
+      new Date(`${bakeDate}T12:00:00`).toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      }),
     ].filter(Boolean);
+    ctx.font = "400 25px system-ui, -apple-system, sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.92)";
+    ctx.fillText(metaParts.join("  ·  "), margin + 36, bandY + 145);
 
-    ctx.fillStyle = "#292524";
-    ctx.font = "500 29px system-ui, -apple-system, sans-serif";
-    for (const item of recapLines) {
-      const lines = wrapText(ctx, item, textWidth).slice(0, 2);
-      for (const line of lines) {
-        ctx.fillText(line, 64, y);
-        y += 42;
-      }
-      y += 10;
+    // Recap heading and divider.
+    const recapTop = 604;
+    ctx.fillStyle = "#1c1917";
+    ctx.font = "700 34px system-ui, -apple-system, sans-serif";
+    ctx.fillText("BAKE RECAP", margin, recapTop);
+    ctx.strokeStyle = "#d6d0c6";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(margin + 220, recapTop - 10);
+    ctx.lineTo(canvas.width - margin, recapTop - 10);
+    ctx.stroke();
+
+    const leftX = margin;
+    const rightX = 558;
+    const columnWidth = 458;
+    const fieldTop = 666;
+
+    function drawField(label: string, value: string, x: number, y: number, maxLines = 2) {
+      if (!value) return y;
+      ctx.fillStyle = "#78716c";
+      ctx.font = "700 18px system-ui, -apple-system, sans-serif";
+      ctx.fillText(label.toUpperCase(), x, y);
+
+      ctx.fillStyle = "#292524";
+      ctx.font = "500 27px system-ui, -apple-system, sans-serif";
+      const lines = wrapText(ctx, value, columnWidth).slice(0, maxLines);
+      lines.forEach((line, index) => ctx.fillText(line, x, y + 38 + index * 34));
+      return y + 38 + lines.length * 34 + 30;
     }
 
-    if (notes && y < 1160) {
-      ctx.fillStyle = "#57534e";
-      ctx.font = "400 25px system-ui, -apple-system, sans-serif";
-      const lines = wrapText(ctx, `Notes: ${notes}`, textWidth).slice(0, 3);
-      for (const line of lines) {
-        ctx.fillText(line, 64, y);
-        y += 36;
-      }
-    }
+    let leftY = fieldTop;
+    leftY = drawField("Hydration", `${hydration.toFixed(1)}%`, leftX, leftY, 1);
+    leftY = drawField("Flour", flourSummary, leftX, leftY, 2);
+    drawField("Process", processSummary, leftX, leftY, 2);
 
+    let rightY = fieldTop;
+    rightY = drawField("Bake", bakingSummary, rightX, rightY, 2);
+    rightY = drawField("Result", evaluationSummary, rightX, rightY, 2);
+    drawField("Notes", notes || "—", rightX, rightY, 2);
+
+    // Optional supporting photos sit in a horizontal strip instead of forming
+    // a tall column. This keeps the composition inside Instagram's safe area.
+    const extraPhotos = selectedExtras
+      .map((id) => photos.find((photo) => photo.id === id))
+      .filter(Boolean) as SharePhoto[];
+
+    const stripY = 1058;
+    const stripHeight = 170;
     if (extraPhotos.length) {
-      const x = 720;
-      const size = 290;
+      const gap = 20;
+      const photoWidth = extraPhotos.length === 1 ? 460 : (contentWidth - gap) / 2;
       for (let index = 0; index < extraPhotos.length; index++) {
         const image = await loadImage(extraPhotos[index].signed_url);
-        const photoY = 760 + index * 315;
-        ctx.save();
-        ctx.beginPath();
-        ctx.roundRect(x, photoY, size, size, 24);
-        ctx.clip();
-        drawCover(ctx, image, x, photoY, size, size);
-        ctx.restore();
+        const x = extraPhotos.length === 1
+          ? margin + (contentWidth - photoWidth) / 2
+          : margin + index * (photoWidth + gap);
+        drawRoundedCover(ctx, image, x, stripY, photoWidth, stripHeight, 20);
       }
+    } else {
+      ctx.fillStyle = "#ebe5dc";
+      ctx.beginPath();
+      ctx.roundRect(margin, stripY, contentWidth, stripHeight, 20);
+      ctx.fill();
+      ctx.fillStyle = "#57534e";
+      ctx.font = "600 26px system-ui, -apple-system, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("BAKE · LEARN · IMPROVE · REPEAT", canvas.width / 2, stripY + 95);
+      ctx.textAlign = "left";
     }
 
+    // Footer remains well above the bottom crop zone.
+    ctx.fillStyle = "#78716c";
+    ctx.font = "600 20px system-ui, -apple-system, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("BREAD BAKING LOG", canvas.width / 2, 1282);
+    ctx.font = "400 18px system-ui, -apple-system, sans-serif";
     ctx.fillStyle = "#a8a29e";
-    ctx.font = "500 22px system-ui, -apple-system, sans-serif";
-    ctx.fillText("BREAD BAKING LOG · bread-baking-log.netlify.app", 64, 1300);
+    ctx.fillText("bread-baking-log.netlify.app", canvas.width / 2, 1314);
+    ctx.textAlign = "left";
 
     return await new Promise<Blob>((resolve, reject) => {
-      canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("Could not export the share card.")), "image/jpeg", 0.92);
+      canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("Could not export the share card.")), "image/jpeg", 0.94);
     });
   }
 
@@ -228,7 +292,7 @@ export default function ShareBake({ bakeName, experimentName, bakeDate, hydratio
   return (
     <section className="mt-6 rounded-3xl border border-stone-200 bg-white p-5 shadow-sm">
       <h2 className="text-lg font-semibold text-stone-900">Share this bake</h2>
-      <p className="mt-1 text-sm leading-6 text-stone-500">Build a 4:5 Instagram card from your chosen thumbnail, recap, and up to two extra photos.</p>
+      <p className="mt-1 text-sm leading-6 text-stone-500">Build a 4:5 Instagram card with generous safe margins, a compact recap, and up to two extra photos.</p>
 
       {!hero ? <p className="mt-4 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-800">Add a photo and choose a home thumbnail first.</p> : (
         <>
