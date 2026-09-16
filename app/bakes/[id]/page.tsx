@@ -9,6 +9,7 @@ import PhotosSection from "./PhotosSection";
 import ShareBake from "./ShareBake";
 import FormulaEditor from "./FormulaEditor";
 import ExperimentNameEditor from "./ExperimentNameEditor";
+import BakeNameEditor from "./BakeNameEditor";
 
 type Ingredient = { ingredient_type: string; name: string; grams: number; sort_order: number };
 type ProcessStep = { step_type: string; description: string | null; note: string | null; duration_minutes: number | null; temperature_f: number | null; sort_order: number };
@@ -45,9 +46,9 @@ function evaluationSummary(evaluation: Evaluation | null) {
   return parts.join(" · ");
 }
 
-export default async function BakePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ editFormula?: string }> }) {
+export default async function BakePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ editFormula?: string; editTitle?: string }> }) {
   const { id } = await params;
-  const { editFormula } = await searchParams;
+  const { editFormula, editTitle } = await searchParams;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
@@ -100,7 +101,7 @@ export default async function BakePage({ params, searchParams }: { params: Promi
         <p className="mb-2 text-sm font-semibold uppercase tracking-[0.18em] text-stone-500">Bake</p>
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
-            <h1 className="text-3xl font-semibold tracking-tight text-stone-900">{bake.name}</h1>
+            {editTitle === "1" ? <BakeNameEditor bakeId={id} initialValue={bake.name} /> : <h1 className="text-3xl font-semibold tracking-tight text-stone-900">{bake.name}</h1>}
             <ExperimentNameEditor bakeId={id} initialValue={bake.experiment_name ?? null} />
             <p className="mt-2 text-sm text-stone-500">{new Date(`${bake.bake_date}T12:00:00`).toLocaleDateString()}</p>
           </div>
