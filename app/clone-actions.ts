@@ -80,5 +80,5 @@ export async function cloneBake(sourceBakeId: string) {
     if (error) { await supabase.from("bakes").delete().eq("id", newBake.id); redirect(`/?error=${encodeURIComponent(error.message)}`); }
   }
 
-  redirect(`/bakes/${newBake.id}?editFormula=1`);
+  redirect(`/bakes/${newBake.id}?editFormula=1&editTitle=1`);
 }
