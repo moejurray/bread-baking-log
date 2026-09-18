@@ -180,17 +180,18 @@ export default function ShareBake({ bakeName, experimentName, bakeDate, hydratio
     const rightX = 558;
     const columnWidth = 458;
     const fieldTop = 666;
+    const fieldCtx = ctx;
 
     function drawField(label: string, value: string, x: number, y: number, maxLines = 2) {
       if (!value) return y;
-      ctx.fillStyle = "#78716c";
-      ctx.font = "700 18px system-ui, -apple-system, sans-serif";
-      ctx.fillText(label.toUpperCase(), x, y);
+      fieldCtx.fillStyle = "#78716c";
+      fieldCtx.font = "700 18px system-ui, -apple-system, sans-serif";
+      fieldCtx.fillText(label.toUpperCase(), x, y);
 
-      ctx.fillStyle = "#292524";
-      ctx.font = "500 27px system-ui, -apple-system, sans-serif";
-      const lines = wrapText(ctx, value, columnWidth).slice(0, maxLines);
-      lines.forEach((line, index) => ctx.fillText(line, x, y + 38 + index * 34));
+      fieldCtx.fillStyle = "#292524";
+      fieldCtx.font = "500 27px system-ui, -apple-system, sans-serif";
+      const lines = wrapText(fieldCtx, value, columnWidth).slice(0, maxLines);
+      lines.forEach((line, index) => fieldCtx.fillText(line, x, y + 38 + index * 34));
       return y + 38 + lines.length * 34 + 30;
     }
 
