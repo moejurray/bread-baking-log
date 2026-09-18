@@ -14,6 +14,80 @@ type Photo = {
 };
 
 type Status = "idle" | "uploading" | "saving" | "deleting" | "error" | "saved";
+type BackupPermission = "granted" | "denied" | "prompt";
+type BackupWritable = { write(data: Blob): Promise<void>; close(): Promise<void> };
+type BackupFileHandle = { createWritable(): Promise<BackupWritable> };
+type BackupDirectoryHandle = {
+  name: string;
+  getFileHandle(name: string, options?: { create?: boolean }): Promise<BackupFileHandle>;
+  queryPermission?: (options?: { mode?: "read" | "readwrite" }) => Promise<BackupPermission>;
+};
+type BackupWindow = Window & {
+  showDirectoryPicker?: (options?: { mode?: "read" | "readwrite"; startIn?: "pictures" }) => Promise<BackupDirectoryHandle>;
+};
+type BackupResult = "saved" | "not-configured" | "permission-needed" | "failed";
+
+const BACKUP_DB_NAME = "bread-baking-log-device-settings";
+const BACKUP_STORE_NAME = "settings";
+const BACKUP_DIRECTORY_KEY = "photo-backup-directory";
+
+function openBackupSettingsDb() {
+  return new Promise<IDBDatabase>((resolve, reject) => {
+    const request = indexedDB.open(BACKUP_DB_NAME, 1);
+    request.onupgradeneeded = () => {
+      if (!request.result.objectStoreNames.contains(BACKUP_STORE_NAME)) request.result.createObjectStore(BACKUP_STORE_NAME);
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error ?? new Error("Could not open phone backup settings."));
+  });
+}
+
+async function getStoredBackupDirectory() {
+  const db = await openBackupSettingsDb();
+  return new Promise<BackupDirectoryHandle | null>((resolve, reject) => {
+    const request = db.transaction(BACKUP_STORE_NAME, "readonly").objectStore(BACKUP_STORE_NAME).get(BACKUP_DIRECTORY_KEY);
+    request.onsuccess = () => {
+      db.close();
+      resolve((request.result as BackupDirectoryHandle | undefined) ?? null);
+    };
+    request.onerror = () => {
+      db.close();
+      reject(request.error ?? new Error("Could not read phone backup settings."));
+    };
+  });
+}
+
+async function storeBackupDirectory(handle: BackupDirectoryHandle) {
+  const db = await openBackupSettingsDb();
+  return new Promise<void>((resolve, reject) => {
+    const request = db.transaction(BACKUP_STORE_NAME, "readwrite").objectStore(BACKUP_STORE_NAME).put(handle, BACKUP_DIRECTORY_KEY);
+    request.onsuccess = () => {
+      db.close();
+      resolve();
+    };
+    request.onerror = () => {
+      db.close();
+      reject(request.error ?? new Error("Could not save phone backup settings."));
+    };
+  });
+}
+
+async function getBackupPermission(handle: BackupDirectoryHandle): Promise<BackupPermission> {
+  if (!handle.queryPermission) return "granted";
+  try {
+    return await handle.queryPermission({ mode: "readwrite" });
+  } catch {
+    return "prompt";
+  }
+}
+
+function backupFileName(file: File, takenAt: string | null) {
+  const sourceDate = new Date(takenAt ?? Date.now());
+  const timestamp = sourceDate.toISOString().replace(/\.\d{3}Z$/, "").replace("T", "_").replaceAll(":", "-");
+  const fileExtension = file.name.includes(".") ? file.name.split(".").pop()?.toLowerCase() : null;
+  const extension = fileExtension || (file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg");
+  return `bread-bake_${timestamp}_${crypto.randomUUID().slice(0, 8)}.${extension}`;
+}
 
 function photoTime(photo: Photo) {
   return new Date(photo.taken_at ?? photo.created_at).getTime();
@@ -50,6 +124,9 @@ export default function PhotosSection({ bakeId, userId, initialPhotos }: { bakeI
   const [isExpanded, setIsExpanded] = useState(true);
   const [status, setStatus] = useState<Status>("idle");
   const [message, setMessage] = useState("");
+  const [backupSupported, setBackupSupported] = useState(false);
+  const [backupFolderName, setBackupFolderName] = useState<string | null>(null);
+  const [backupReady, setBackupReady] = useState(false);
   const cameraRef = useRef<HTMLInputElement>(null);
   const libraryRef = useRef<HTMLInputElement>(null);
 
@@ -61,13 +138,84 @@ export default function PhotosSection({ bakeId, userId, initialPhotos }: { bakeI
     return () => document.removeEventListener("keydown", onKeyDown);
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    const supported = typeof (window as BackupWindow).showDirectoryPicker === "function";
+    setBackupSupported(supported);
+    if (!supported) return;
+
+    void (async () => {
+      try {
+        const handle = await getStoredBackupDirectory();
+        if (!handle || cancelled) return;
+        const permission = await getBackupPermission(handle);
+        if (cancelled) return;
+        setBackupFolderName(handle.name);
+        setBackupReady(permission === "granted");
+      } catch {
+        // Device backup is optional; Supabase photo storage continues to work normally.
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, []);
+
+  async function chooseBackupFolder() {
+    const picker = (window as BackupWindow).showDirectoryPicker;
+    if (!picker) {
+      setStatus("error");
+      setMessage("This browser does not support direct phone-folder backup.");
+      return;
+    }
+
+    try {
+      const handle = await picker({ mode: "readwrite", startIn: "pictures" });
+      await storeBackupDirectory(handle);
+      const permission = await getBackupPermission(handle);
+      setBackupFolderName(handle.name);
+      setBackupReady(permission === "granted");
+      setStatus("saved");
+      setMessage(permission === "granted"
+        ? `Phone backup set to ${handle.name}. New photos taken in the app will also be saved there.`
+        : `Folder ${handle.name} was selected, but write permission is not available. Tap Reconnect and select it again.`);
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      setStatus("error");
+      setMessage(error instanceof Error ? error.message : "Could not set the phone backup folder.");
+    }
+  }
+
+  async function saveCameraCopy(file: File, takenAt: string | null): Promise<BackupResult> {
+    try {
+      const handle = await getStoredBackupDirectory();
+      if (!handle) return "not-configured";
+
+      const permission = await getBackupPermission(handle);
+      if (permission !== "granted") {
+        setBackupFolderName(handle.name);
+        setBackupReady(false);
+        return "permission-needed";
+      }
+
+      const fileHandle = await handle.getFileHandle(backupFileName(file, takenAt), { create: true });
+      const writable = await fileHandle.createWritable();
+      await writable.write(file);
+      await writable.close();
+      setBackupFolderName(handle.name);
+      setBackupReady(true);
+      return "saved";
+    } catch {
+      return "failed";
+    }
+  }
+
   async function refreshSignedUrl(storagePath: string) {
     const { data, error } = await supabase.storage.from("bake-photos").createSignedUrl(storagePath, 60 * 60);
     if (error || !data?.signedUrl) throw error ?? new Error("Could not create photo URL.");
     return data.signedUrl;
   }
 
-  async function uploadPhoto(file: File) {
+  async function uploadPhoto(file: File, source: "camera" | "library") {
     if (!file.type.startsWith("image/")) { setStatus("error"); setMessage("Please choose an image file."); return; }
     if (file.size > 10 * 1024 * 1024) { setStatus("error"); setMessage("Photo must be 10 MB or smaller."); return; }
 
@@ -93,7 +241,16 @@ export default function PhotosSection({ bakeId, userId, initialPhotos }: { bakeI
       const signedUrl = await refreshSignedUrl(storagePath);
       setPhotos((current) => sortNewestFirst([{ ...row, signed_url: signedUrl }, ...current]));
       setStatus("saved");
-      setMessage(takenAt ? "Photo added with camera timestamp." : "Photo added. No camera timestamp was available, so upload time is used.");
+
+      let successMessage = takenAt ? "Photo added with camera timestamp." : "Photo added. No camera timestamp was available, so upload time is used.";
+      if (source === "camera" && typeof (window as BackupWindow).showDirectoryPicker === "function") {
+        const backupResult = await saveCameraCopy(file, takenAt);
+        if (backupResult === "saved") successMessage += " A copy was also saved to your phone backup folder.";
+        if (backupResult === "not-configured") successMessage += " Set up Phone photo backup below to also keep a copy on this device.";
+        if (backupResult === "permission-needed") successMessage += " Reconnect the phone backup folder below to resume device copies.";
+        if (backupResult === "failed") successMessage += " The app copy is safe, but the phone backup copy could not be saved.";
+      }
+      setMessage(successMessage);
     } catch (error) {
       setStatus("error"); setMessage(error instanceof Error ? error.message : "Photo uploaded, but preview failed.");
     }
@@ -101,7 +258,7 @@ export default function PhotosSection({ bakeId, userId, initialPhotos }: { bakeI
 
   async function handleFiles(files: FileList | null, source: "camera" | "library") {
     if (!files?.length) return;
-    for (const file of Array.from(files)) await uploadPhoto(file);
+    for (const file of Array.from(files)) await uploadPhoto(file, source);
     if (source === "camera" && cameraRef.current) cameraRef.current.value = "";
     if (source === "library" && libraryRef.current) libraryRef.current.value = "";
   }
@@ -169,6 +326,32 @@ export default function PhotosSection({ bakeId, userId, initialPhotos }: { bakeI
             </label>
           </div>
           <p className="mt-2 text-xs text-stone-400">Take photo opens the phone camera when supported. Choose photo opens the photo library. Tap a thumbnail to enlarge it.</p>
+
+          <div className="mt-3 rounded-xl border border-stone-200 bg-stone-50 p-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-stone-800">Phone photo backup</p>
+                <p className="mt-1 text-xs text-stone-500">
+                  {!backupSupported
+                    ? "Direct device-folder backup is not supported in this browser."
+                    : backupReady
+                      ? `New camera photos are also saved to ${backupFolderName}. Enable Google Photos backup for that device folder once.`
+                      : backupFolderName
+                        ? `Reconnect ${backupFolderName} to resume device copies.`
+                        : "Choose or create a folder such as Pictures/Bread Baking Log. New camera photos will also be saved there."}
+                </p>
+              </div>
+              {backupSupported ? (
+                <button
+                  type="button"
+                  onClick={chooseBackupFolder}
+                  className="shrink-0 rounded-lg border border-stone-300 bg-white px-3 py-2 text-xs font-semibold text-stone-700"
+                >
+                  {backupFolderName ? (backupReady ? "Change" : "Reconnect") : "Set up"}
+                </button>
+              ) : null}
+            </div>
+          </div>
 
           {photos.length > 0 ? (
             <div className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-3">
