@@ -51,7 +51,7 @@ export default function HelpButton() {
                   <li><strong>Process:</strong> record mixing, kneading, proofing, shaping, or add your own steps. Reorder steps when needed.</li>
                   <li><strong>Baking:</strong> record each oven stage, temperature, time, and lid on/off.</li>
                   <li><strong>Cooling:</strong> record time in the Dutch oven and on the rack.</li>
-                  <li><strong>Evaluation:</strong> score the loaf, use ? for guidance, and add notes to individual criteria with the pencil. Notes from Process, Baking, and Evaluation are gathered under General notes at the bottom.</li>
+                  <li><strong>Evaluation:</strong> score the loaf, use ? for guidance, and add notes to individual criteria with the pencil. General notes and the notes from Process, Baking, and Evaluation are gathered together in a single Notes card at the bottom.</li>
                   <li><strong>Photos:</strong> add loaf, crumb, or process photos and optional captions.</li>
                 </ol>
               </div>
