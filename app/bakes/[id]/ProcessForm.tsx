@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type DragEvent, type FormEvent, type PointerEvent as ReactPointerEvent, type WheelEvent } from "react";
 import { saveProcess } from "./actions";
+import { cleanBakingNote, compileProcessNotes, PROCESS_NOTES_EVENT } from "./process-notes";
 
 type ProcessStep = { step_type: string; description: string | null; note: string | null; duration_minutes: number | null; temperature_f: number | null };
 type BakingStage = { temperature_f: number | null; duration_minutes: number | null; lid_on: boolean | null; description: string | null };
@@ -22,7 +23,6 @@ const defaultBaking: BakingStage[] = [
 const coolingNames = ["Cooling in Dutch oven", "Cooling on rack"];
 
 function preventWheelChange(event: WheelEvent<HTMLInputElement>) { event.currentTarget.blur(); }
-function cleanBakingNote(description: string | null) { return (description ?? "").replace(/^\[\[method:(freeform|other)\]\]/, ""); }
 function bakingMethod(stage: BakingStage) {
   if (stage.lid_on === true) return "lid_on";
   if (stage.lid_on === false) return "lid_off";
@@ -53,10 +53,11 @@ export default function ProcessForm({ bakeId, initialSteps, initialBaking, initi
   const cooling = coolingNames.map((name) => initialCooling.find((step) => step.description === name) ?? { step_type: "resting", description: name, note: null, duration_minutes: null, temperature_f: null });
 
   async function saveNow() { if (!formRef.current) return; if (timerRef.current) clearTimeout(timerRef.current); timerRef.current = null; const attempt = ++saveAttemptRef.current; const data = new FormData(formRef.current); setSaveState("saving"); setSaveError(""); try { const result = await Promise.race([saveProcess(bakeId, data), new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Save timed out. Please try again.")), 15000))]); if (attempt !== saveAttemptRef.current) return; if (result.ok) setSaveState("saved"); else { setSaveState("error"); setSaveError(result.error ?? "Could not save."); } } catch (error) { if (attempt !== saveAttemptRef.current) return; setSaveState("error"); setSaveError(error instanceof Error ? error.message : "Could not save."); } }
+  function publishNotes() { if (!formRef.current) return; const data = new FormData(formRef.current); const types = data.getAll("step_type").map(String); const stepNotes = data.getAll("step_note").map(String); const notes = compileProcessNotes(types.map((step_type, index) => ({ step_type, note: stepNotes[index] ?? null })), data.getAll("bake_description").map(String)); window.dispatchEvent(new CustomEvent(PROCESS_NOTES_EVENT, { detail: notes })); }
   function scheduleSave() { setSaveState("unsaved"); if (timerRef.current) clearTimeout(timerRef.current); timerRef.current = setTimeout(saveNow, 900); }
-  useEffect(() => { if (firstRender.current) { firstRender.current = false; return; } scheduleSave(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [steps, baking]);
+  useEffect(() => { if (firstRender.current) { firstRender.current = false; return; } publishNotes(); scheduleSave(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [steps, baking]);
   useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
-  function handleChange(event: FormEvent<HTMLFormElement>) { const target = event.target as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement; if (target.name) scheduleSave(); }
+  function handleChange(event: FormEvent<HTMLFormElement>) { const target = event.target as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement; if (target.name) { publishNotes(); scheduleSave(); } }
   function addStep() { setSteps((current) => [...current, { step_type: "other", description: "", note: "", duration_minutes: null, temperature_f: null }]); }
   function deleteStep(index: number) { setSteps((current) => current.filter((_, itemIndex) => itemIndex !== index)); }
   function moveStep(from: number, to: number) { if (to < 0 || to >= steps.length || from === to) return; setSteps((current) => { const next = [...current]; const [moved] = next.splice(from, 1); next.splice(to, 0, moved); return next; }); }

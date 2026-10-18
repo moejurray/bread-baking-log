@@ -10,6 +10,7 @@ import ShareBake from "./ShareBake";
 import FormulaEditor from "./FormulaEditor";
 import ExperimentNameEditor from "./ExperimentNameEditor";
 import BakeNameEditor from "./BakeNameEditor";
+import { cleanBakingNote, compileProcessNotes } from "./process-notes";
 
 type Ingredient = { ingredient_type: string; name: string; grams: number; sort_order: number };
 type ProcessStep = { step_type: string; description: string | null; note: string | null; duration_minutes: number | null; temperature_f: number | null; sort_order: number };
@@ -111,7 +112,7 @@ export default async function BakePage({ params, searchParams }: { params: Promi
 
       <FormulaEditor bakeId={id} initialIngredients={ingredients} defaultOpen={editFormula === "1"} />
       <ProcessForm bakeId={id} initialSteps={steps} initialBaking={baking} initialCooling={cooling} />
-      <EvaluationForm bakeId={id} initial={evaluation} />
+      <EvaluationForm bakeId={id} initial={evaluation} initialProcessNotes={compileProcessNotes(steps, baking.map((stage) => cleanBakingNote(stage.description)))} />
       <PhotosSection bakeId={id} userId={user.id} initialPhotos={usablePhotos} />
       <ShareBake
         bakeName={bake.name}
