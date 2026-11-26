@@ -10,9 +10,9 @@ import ShareBake from "./ShareBake";
 import FormulaEditor from "./FormulaEditor";
 import ExperimentNameEditor from "./ExperimentNameEditor";
 import BakeNameEditor from "./BakeNameEditor";
-import { cleanBakingNote, compileProcessNotes } from "./process-notes";
+import { cleanBakingNote, compileFormulaNotes, compileProcessNotes } from "./process-notes";
 
-type Ingredient = { ingredient_type: string; name: string; grams: number; sort_order: number };
+type Ingredient = { ingredient_type: string; name: string; grams: number; sort_order: number; amount?: number | null; unit?: string | null; note?: string | null };
 type ProcessStep = { step_type: string; description: string | null; note: string | null; duration_minutes: number | null; temperature_f: number | null; sort_order: number };
 type BakingStage = { temperature_f: number | null; duration_minutes: number | null; lid_on: boolean | null; description: string | null; sort_order: number };
 type Evaluation = { crumb_openness: string | null; crumb_evenness: number | null; moisture: string | null; chew: string | null; oven_spring: number | null; structure_rating: number | null; height_rise: number | null; top_crust_color: number | null; bottom_crust_color: number | null; crispness: number | null; flavor: number | null; overall_rating: number | null; would_bake_again: string | null; notes: string | null; criterion_notes: Record<string, string> | null };
@@ -56,7 +56,7 @@ export default async function BakePage({ params, searchParams }: { params: Promi
 
   const { data: bake } = await supabase
     .from("bakes")
-    .select("id, name, experiment_name, bake_date, ingredients(ingredient_type, name, grams, sort_order), process_steps(step_type, description, note, duration_minutes, temperature_f, sort_order), baking_stages(temperature_f, duration_minutes, lid_on, description, sort_order), evaluations(crumb_openness, crumb_evenness, moisture, chew, oven_spring, structure_rating, height_rise, top_crust_color, bottom_crust_color, crispness, flavor, overall_rating, would_bake_again, notes, criterion_notes)")
+    .select("id, name, experiment_name, bake_date, ingredients(*), process_steps(step_type, description, note, duration_minutes, temperature_f, sort_order), baking_stages(temperature_f, duration_minutes, lid_on, description, sort_order), evaluations(crumb_openness, crumb_evenness, moisture, chew, oven_spring, structure_rating, height_rise, top_crust_color, bottom_crust_color, crispness, flavor, overall_rating, would_bake_again, notes, criterion_notes)")
     .eq("id", id)
     .single();
   if (!bake) notFound();
@@ -112,7 +112,7 @@ export default async function BakePage({ params, searchParams }: { params: Promi
 
       <FormulaEditor bakeId={id} initialIngredients={ingredients} defaultOpen={editFormula === "1"} />
       <ProcessForm bakeId={id} initialSteps={steps} initialBaking={baking} initialCooling={cooling} />
-      <EvaluationForm bakeId={id} initial={evaluation} initialProcessNotes={compileProcessNotes(steps, baking.map((stage) => cleanBakingNote(stage.description)))} />
+      <EvaluationForm bakeId={id} initial={evaluation} initialProcessNotes={compileProcessNotes(steps, baking.map((stage) => cleanBakingNote(stage.description)))} initialFormulaNotes={compileFormulaNotes(ingredients)} />
       <PhotosSection bakeId={id} userId={user.id} initialPhotos={usablePhotos} />
       <ShareBake
         bakeName={bake.name}

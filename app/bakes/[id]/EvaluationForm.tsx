@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { saveEvaluation } from "./evaluation-actions";
-import { PROCESS_NOTES_EVENT, type CompiledNote, type ProcessNotes } from "./process-notes";
+import { FORMULA_NOTES_EVENT, PROCESS_NOTES_EVENT, type CompiledNote, type ProcessNotes } from "./process-notes";
 
 type Evaluation = {
   crumb_openness: string | null; crumb_evenness: number | null; moisture: string | null; chew: string | null;
@@ -44,21 +44,22 @@ function Rating({ name, label, value, help, note, onNoteChanged }: { name: strin
 
 function NoteGroup({ title, notes }: { title: string; notes: CompiledNote[] }) {
   if (!notes.length) return null;
-  return <div><h4 className="text-xs font-semibold uppercase tracking-wide text-stone-500">{title}</h4><div className="mt-2 space-y-2">{notes.map((n) => <div key={n.label} className="text-sm"><span className="font-medium">{n.label}:</span> <span className="whitespace-pre-line text-stone-600">{n.text}</span></div>)}</div></div>;
+  return <div><h4 className="text-xs font-semibold uppercase tracking-wide text-stone-500">{title}</h4><div className="mt-2 space-y-2">{notes.map((n, i) => <div key={`${n.label}-${i}`} className="text-sm"><span className="font-medium">{n.label}:</span> <span className="whitespace-pre-line text-stone-600">{n.text}</span></div>)}</div></div>;
 }
 
-export default function EvaluationForm({ bakeId, initial, initialProcessNotes }: { bakeId: string; initial: Evaluation | null; initialProcessNotes: ProcessNotes }) {
+export default function EvaluationForm({ bakeId, initial, initialProcessNotes, initialFormulaNotes = [] }: { bakeId: string; initial: Evaluation | null; initialProcessNotes: ProcessNotes; initialFormulaNotes?: CompiledNote[] }) {
   const formRef = useRef<HTMLFormElement>(null); const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [status, setStatus] = useState<"idle" | "pending" | "saving" | "saved" | "error">("idle"); const [error, setError] = useState("");
   const [criterionNotes, setCriterionNotes] = useState<Record<string, string>>(initial?.criterion_notes ?? {});
-  const [open, setOpen] = useState(false); const [processNotes, setProcessNotes] = useState(initialProcessNotes);
+  const [open, setOpen] = useState(false); const [processNotes, setProcessNotes] = useState(initialProcessNotes); const [formulaNotes, setFormulaNotes] = useState(initialFormulaNotes);
   useEffect(() => { function update(event: Event) { setProcessNotes((event as CustomEvent<ProcessNotes>).detail); } window.addEventListener(PROCESS_NOTES_EVENT, update); return () => window.removeEventListener(PROCESS_NOTES_EVENT, update); }, []);
+  useEffect(() => { function update(event: Event) { setFormulaNotes((event as CustomEvent<CompiledNote[]>).detail); } window.addEventListener(FORMULA_NOTES_EVENT, update); return () => window.removeEventListener(FORMULA_NOTES_EVENT, update); }, []);
   useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
   async function saveNow() { if (!formRef.current) return; if (timerRef.current) clearTimeout(timerRef.current); setStatus("saving"); const result = await saveEvaluation(bakeId, new FormData(formRef.current)); if (result.ok) { setStatus("saved"); setError(""); } else { setStatus("error"); setError(result.error ?? "Could not save evaluation."); } }
   function queueSave() { setStatus("pending"); if (timerRef.current) clearTimeout(timerRef.current); timerRef.current = setTimeout(saveNow, 900); }
   function changeNote(k: string, v: string) { setCriterionNotes((c) => ({ ...c, [k]: v })); queueSave(); }
   const note = (k: string) => criterionNotes[k] ?? ""; const savedNotes = Object.entries(criterionNotes).filter(([, v]) => v.trim()).map(([k, v]) => ({ label: criterionLabels[k] ?? k, text: v.trim() }));
-  const hasCompiledNotes = processNotes.process.length + processNotes.baking.length + savedNotes.length > 0;
+  const hasCompiledNotes = formulaNotes.length + processNotes.process.length + processNotes.baking.length + savedNotes.length > 0;
 
   return <section className="mt-6 rounded-3xl border border-stone-200 bg-white shadow-sm">
     {status !== "idle" ? <div className="sticky top-3 z-20 flex justify-end pointer-events-none px-5 pt-3"><div className={`rounded-full border bg-white/95 px-3 py-1.5 text-xs font-semibold shadow-sm ${status === "error" ? "border-red-200 text-red-700" : "border-stone-200 text-stone-600"}`}>{status === "pending" ? "Changes pending…" : status === "saving" ? "Saving…" : status === "saved" ? "✓ Saved" : "Save failed"}</div></div> : null}
@@ -77,7 +78,7 @@ export default function EvaluationForm({ bakeId, initial, initialProcessNotes }:
       <div><h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-stone-500">Rise & structure</h3><div className="grid grid-cols-2 gap-3"><Rating name="oven_spring" label="Oven spring" value={initial?.oven_spring ?? null} help="How strongly the loaf expanded after it went into the oven." note={note("oven_spring")} onNoteChanged={changeNote} /><Rating name="structure_rating" label="Structure" value={initial?.structure_rating ?? null} help="How well the loaf held its intended shape instead of spreading or collapsing." note={note("structure_rating")} onNoteChanged={changeNote} /><Rating name="height_rise" label="Height / Rise" value={initial?.height_rise ?? null} help="How well the finished loaf achieved the height and rise you wanted for this bread." note={note("height_rise")} onNoteChanged={changeNote} /></div></div>
       <div><h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-stone-500">Crust</h3><div className="grid grid-cols-2 gap-3"><Rating name="top_crust_color" label="Top color" value={initial?.top_crust_color ?? null} help="How close the top crust color is to your preferred bake." note={note("top_crust_color")} onNoteChanged={changeNote} /><Rating name="bottom_crust_color" label="Bottom color" value={initial?.bottom_crust_color ?? null} help="How close the bottom crust color is to your preferred bake." note={note("bottom_crust_color")} onNoteChanged={changeNote} /><Rating name="crispness" label="Crispness" value={initial?.crispness ?? null} help="How crisp and crackly the crust is compared with your ideal." note={note("crispness")} onNoteChanged={changeNote} /></div></div>
       <div><h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-stone-500">Overall</h3><div className="grid grid-cols-2 gap-3"><Rating name="flavor" label="Flavor" value={initial?.flavor ?? null} help="Overall flavor quality and balance." note={note("flavor")} onNoteChanged={changeNote} /><Rating name="overall_rating" label="Overall" value={initial?.overall_rating ?? null} help="Your overall judgment of this bake." note={note("overall_rating")} onNoteChanged={changeNote} /><label className="col-span-2 text-sm font-medium">Would you bake this again?<Tools criterion="would_bake_again" help="Your simple gut check after evaluating the loaf." note={note("would_bake_again")} onNoteChanged={changeNote} /><select name="would_bake_again" defaultValue={initial?.would_bake_again ?? ""} className="mt-2 min-h-12 w-full rounded-xl border border-stone-300 bg-white px-3"><option value="">—</option><option>Yes</option><option>No</option><option>Unsure</option></select></label></div></div>
-      <div className="rounded-2xl bg-stone-50 p-4"><h3 className="text-sm font-semibold">Notes</h3><label className="mt-3 block"><span className="text-xs font-semibold uppercase tracking-wide text-stone-500">General notes</span><textarea name="evaluation_notes" defaultValue={initial?.notes ?? ""} onBlur={saveNow} rows={4} className="mt-2 w-full rounded-xl border border-stone-300 bg-white px-3 py-3 text-sm" /></label>{hasCompiledNotes ? <div className="mt-4 space-y-4"><NoteGroup title="Process" notes={processNotes.process} /><NoteGroup title="Baking" notes={processNotes.baking} /><NoteGroup title="Evaluation" notes={savedNotes} /></div> : null}</div>
+      <div className="rounded-2xl bg-stone-50 p-4"><h3 className="text-sm font-semibold">Notes</h3><label className="mt-3 block"><span className="text-xs font-semibold uppercase tracking-wide text-stone-500">General notes</span><textarea name="evaluation_notes" defaultValue={initial?.notes ?? ""} onBlur={saveNow} rows={4} className="mt-2 w-full rounded-xl border border-stone-300 bg-white px-3 py-3 text-sm" /></label>{hasCompiledNotes ? <div className="mt-4 space-y-4"><NoteGroup title="Formula" notes={formulaNotes} /><NoteGroup title="Process" notes={processNotes.process} /><NoteGroup title="Baking" notes={processNotes.baking} /><NoteGroup title="Evaluation" notes={savedNotes} /></div> : null}</div>
     </form>
   </section>;
 }

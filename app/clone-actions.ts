@@ -25,7 +25,7 @@ export async function cloneBake(sourceBakeId: string) {
 
   const { data: source, error: sourceError } = await supabase
     .from("bakes")
-    .select("id, name, ingredients(ingredient_type, name, grams, sort_order), process_steps(step_type, description, duration_minutes, temperature_f, sort_order), baking_stages(temperature_f, duration_minutes, lid_on, description, sort_order)")
+    .select("id, name, ingredients(*), process_steps(step_type, description, duration_minutes, temperature_f, sort_order), baking_stages(temperature_f, duration_minutes, lid_on, description, sort_order)")
     .eq("id", sourceBakeId)
     .single();
 
@@ -49,6 +49,8 @@ export async function cloneBake(sourceBakeId: string) {
     name: item.name,
     grams: item.grams,
     sort_order: item.sort_order,
+    // Units/notes exist once the ingredient units migration is applied.
+    ...("unit" in item ? { amount: item.amount, unit: item.unit, note: item.note } : {}),
   }));
   const processSteps = (source.process_steps ?? []).map((step) => ({
     bake_id: newBake.id,
