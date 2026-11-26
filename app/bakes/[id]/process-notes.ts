@@ -14,3 +14,10 @@ export function compileProcessNotes(steps: { step_type: string; note: string | n
     baking: bakingNotes.map((note, index) => ({ label: `Baking Stage ${index + 1}`, text: note?.trim() ?? "" })).filter((note) => note.text),
   };
 }
+
+// Fired by FormulaEditor whenever ingredient notes change.
+export const FORMULA_NOTES_EVENT = "bake:formula-notes";
+
+export function compileFormulaNotes(ingredients: { name: string; note?: string | null }[]): CompiledNote[] {
+  return ingredients.map((item) => ({ label: item.name || "Ingredient", text: item.note?.trim() ?? "" })).filter((note) => note.text);
+}

@@ -18,6 +18,9 @@ You can:
 
 - Record multiple flour types and weights
 - Track water, salt, yeast type, and yeast weight
+- Add other ingredients such as milk, butter, eggs, sugar, or anything custom
+- Enter amounts in grams or imperial/volume measures (oz, lb, cups, tbsp, tsp, fl oz); everything is converted to grams for hydration
+- Add notes to individual formula ingredients
 - See hydration calculated automatically
 - Build, reorder, add, and remove process steps
 - Record baking and cooling stages
